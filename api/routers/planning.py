@@ -65,7 +65,7 @@ async def generate_plan(
     
     # 3. Llamar a la API de Gemini
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro')
+        model = genai.GenerativeModel('gemini-2.5-pro')
         response = await model.generate_content_async(prompt)
         
         # 4. Devolver la respuesta
