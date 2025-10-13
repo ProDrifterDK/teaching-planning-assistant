@@ -41,7 +41,7 @@ def clean_file(filepath):
 
 def main():
     parser = argparse.ArgumentParser(description="Limpia los campos 'habilidades' vacíos del archivo JSON enriquecido.")
-    parser.add_argument("file_to_clean", help="Ruta al archivo JSON que se va a limpiar.")
+    parser.add_argument("file_to_clean", default="data/processed/structured_data_enriched.json", help="Ruta al archivo JSON que se va a limpiar.")
     
     args = parser.parse_args()
     

@@ -191,8 +191,8 @@ def main():
     load_dotenv()
     setup_logging()
     parser = argparse.ArgumentParser(description="Enriquece un archivo JSON de Objetivos de Aprendizaje (OAs) con habilidades cognitivas usando la API de Gemini.")
-    parser.add_argument("input_file", help="Ruta al archivo JSON de entrada.")
-    parser.add_argument("output_file", help="Ruta al archivo JSON de salida.")
+    parser.add_argument("input_file", default="data/raw/structured_data_raw.json", help="Ruta al archivo JSON de entrada.")
+    parser.add_argument("output_file", default="data/processed/structured_data_enriched.json", help="Ruta al archivo JSON de salida.")
     parser.add_argument("--workers", type=int, default=10, help="Número de hilos paralelos para las llamadas a la API.")
     
     args = parser.parse_args()
