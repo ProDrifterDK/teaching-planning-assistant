@@ -1,1 +1,18 @@
+# VS Code
+.vscode/*
+!.vscode/settings.json
+
+# Python Virtual Environment
+api/venv/
+
+# Python Caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+logs/
+*.log
+
 .env
