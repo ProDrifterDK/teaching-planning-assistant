@@ -20,13 +20,15 @@ class Stats:
     def __init__(self):
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        self.total_thought_tokens = 0
         self.total_cost = 0.0
         self.lock = threading.Lock()
 
-    def update(self, input_tokens, output_tokens, cost):
+    def update(self, input_tokens, output_tokens, thought_tokens, cost):
         with self.lock:
             self.total_input_tokens += input_tokens
             self.total_output_tokens += output_tokens
+            self.total_thought_tokens += thought_tokens
             self.total_cost += cost
 
 def setup_logging():
@@ -34,7 +36,7 @@ def setup_logging():
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler("enrichment.log"),
+            logging.FileHandler("logs/enrichment.log"),
             logging.StreamHandler(sys.stdout)
         ]
     )
@@ -59,7 +61,6 @@ def load_data(filepath):
 
 def save_data(data, filepath):
     try:
-        # Asegurarse de que el directorio de salida exista
         output_dir = os.path.dirname(filepath)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -86,17 +87,13 @@ def build_gemini_prompt(oa_text):
 
     prompt_structure = f"""
 Rol: Eres un experto en pedagogía y diseño curricular, con un profundo conocimiento de la Taxonomía de Bloom.
-
 Contexto: Se te proporcionará el texto de un objetivo de aprendizaje. Tu tarea es analizar este texto e identificar las principales habilidades cognitivas que un estudiante debe demostrar. Utiliza la tabla proporcionada de los niveles y verbos de la Taxonomía de Bloom como tu guía.
-
 La Tabla de la Taxonomía: Aquí está la definición de la Taxonomía de Bloom a la que debes adherirte estrictamente:
 {bloom_taxonomy_table}
-
 La Tarea: Analiza el siguiente texto del objetivo de aprendizaje:
 ---
 {oa_text}
 ---
-
 Restricción de Formato de Salida: Devuelve tu respuesta únicamente como un objeto JSON válido con una sola clave "skills", que contiene una lista de cadenas de texto. Las cadenas deben ser uno de los seis nombres oficiales de nivel de la taxonomía: "Recordar", "Comprender", "Aplicar", "Analizar", "Evaluar", "Crear". No proporciones ninguna otra explicación o texto fuera del objeto JSON.
 """
     return prompt_structure
@@ -107,43 +104,48 @@ def get_skills_from_gemini(text_to_analyze, client):
     wait_time = 1
 
     prompt = build_gemini_prompt(text_to_analyze)
+    
+    thinking_config = genai.types.ThinkingConfig(
+        thinking_budget=-1,  # Activar pensamiento dinámico
+        include_thoughts=True
+    )
 
     for attempt in range(max_retries):
         raw_response_text = ""
+        input_tokens, output_tokens, thought_tokens = 0, 0, 0
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-pro",
-                contents=prompt
+                contents=prompt,
+                thinking_config=thinking_config
             )
             raw_response_text = response.text
-            # Limpiar la respuesta para asegurar que solo contenga el JSON
             cleaned_response = raw_response_text.strip().replace("```json", "").replace("```", "").strip()
             data = json.loads(cleaned_response)
 
-            input_tokens = 0
-            output_tokens = 0
             if hasattr(response, 'usage_metadata'):
                 input_tokens = response.usage_metadata.prompt_token_count
                 output_tokens = response.usage_metadata.candidates_token_count
+                thought_tokens = response.usage_metadata.thoughts_token_count if hasattr(response.usage_metadata, 'thoughts_token_count') else 0
 
             if "skills" in data and isinstance(data["skills"], list):
-                return data["skills"], input_tokens, output_tokens
+                return data["skills"], input_tokens, output_tokens, thought_tokens
             else:
-                logging.warning(f"Respuesta JSON inesperada: {cleaned_response}. Faltan 'skills' o no es una lista.")
-                return [], input_tokens, output_tokens
+                logging.warning(f"Respuesta JSON inesperada: {cleaned_response}.")
+                return [], input_tokens, output_tokens, thought_tokens
 
         except json.JSONDecodeError:
-            logging.error(f"No se pudo decodificar la respuesta JSON de Gemini. Respuesta recibida: '{raw_response_text}'")
-            return [], 0, 0 # No reintentar en error de parseo
+            logging.error(f"No se pudo decodificar la respuesta JSON: '{raw_response_text}'")
+            return [], input_tokens, output_tokens, thought_tokens
         except Exception as e:
-            logging.warning(f"Error en la llamada a la API de Gemini (intento {attempt + 1}/{max_retries}): {e}")
+            logging.warning(f"Error en la API (intento {attempt + 1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
                 time.sleep(wait_time)
                 wait_time *= backoff_factor
             else:
-                logging.error(f"Fallo al contactar la API de Gemini después de {max_retries} intentos.")
-                return [], 0, 0
-    return [], 0, 0
+                logging.error(f"Fallo en la API después de {max_retries} intentos.")
+                return [], input_tokens, output_tokens, thought_tokens
+    return [], 0, 0, 0
 
 def process_oas(data, client, max_workers, stats):
     
@@ -162,20 +164,20 @@ def process_oas(data, client, max_workers, stats):
             text_to_analyze += "\n" + "\n".join(desglose)
         
         if not text_to_analyze.strip():
-            logging.warning(f"OA {oa_id} no tiene texto para analizar. Saltando.")
+            logging.warning(f"OA {oa_id} sin texto. Saltando.")
             oa['habilidades'] = []
             return
         
-        skills, input_tokens, output_tokens = get_skills_from_gemini(text_to_analyze, client)
+        skills, input_tokens, output_tokens, thought_tokens = get_skills_from_gemini(text_to_analyze, client)
         oa['habilidades'] = sorted(skills) if skills else []
 
-        cost = (input_tokens / 1000000 * PRICE_INPUT_TEXT) + (output_tokens / 1000000 * PRICE_OUTPUT_TEXT)
-        stats_obj.update(input_tokens, output_tokens, cost)
+        cost = (input_tokens / 1000000 * PRICE_INPUT_TEXT) + ((output_tokens + thought_tokens) / 1000000 * PRICE_OUTPUT_TEXT)
+        stats_obj.update(input_tokens, output_tokens, thought_tokens, cost)
 
         if skills:
-            logging.info(f"OA {oa_id} OK. Costo: ${cost:.6f}, Tokens(I/O): {input_tokens}/{output_tokens}, Skills: {oa['habilidades']}")
+            logging.info(f"OA {oa_id} OK. Costo: ${cost:.6f}, Tokens(I/O/T): {input_tokens}/{output_tokens}/{thought_tokens}, Skills: {oa['habilidades']}")
         else:
-            logging.warning(f"OA {oa_id} FAILED. No se obtuvieron habilidades.")
+            logging.warning(f"OA {oa_id} FAILED. No se obtuvieron skills.")
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(worker, oa, stats) for oa in tasks}
@@ -190,10 +192,10 @@ def process_oas(data, client, max_workers, stats):
 def main():
     load_dotenv()
     setup_logging()
-    parser = argparse.ArgumentParser(description="Enriquece un archivo JSON de Objetivos de Aprendizaje (OAs) con habilidades cognitivas usando la API de Gemini.")
-    parser.add_argument("input_file", default="data/raw/structured_data_raw.json", help="Ruta al archivo JSON de entrada.")
-    parser.add_argument("output_file", default="data/processed/structured_data_enriched.json", help="Ruta al archivo JSON de salida.")
-    parser.add_argument("--workers", type=int, default=10, help="Número de hilos paralelos para las llamadas a la API.")
+    parser = argparse.ArgumentParser(description="Enriquece OAs con habilidades cognitivas usando la API de Gemini.")
+    parser.add_argument("input_file", nargs='?', default="data/raw/structured_data_raw.json", help="Ruta al archivo JSON de entrada.")
+    parser.add_argument("output_file", nargs='?', default="data/processed/structured_data_enriched.json", help="Ruta al archivo JSON de salida.")
+    parser.add_argument("--workers", type=int, default=10, help="Número de hilos paralelos.")
     
     args = parser.parse_args()
     
@@ -201,11 +203,12 @@ def main():
     logging.info("Inicio del script de enriquecimiento.")
     logging.info(f"Archivo de entrada: {args.input_file}")
     logging.info(f"Archivo de salida: {args.output_file}")
-    logging.info(f"Usando {args.workers} workers paralelos.")
+    logging.info(f"Usando {args.workers} workers.")
 
     get_gemini_api_key()
 
     stats = Stats()
+    stats.total_thought_tokens = 0
 
     try:
         client = genai.Client()
@@ -224,6 +227,7 @@ def main():
     logging.info(f"Tiempo total: {elapsed_time:.2f} segundos.")
     logging.info(f"Tokens de entrada totales: {stats.total_input_tokens}")
     logging.info(f"Tokens de salida totales: {stats.total_output_tokens}")
+    logging.info(f"Tokens de pensamiento totales: {stats.total_thought_tokens}")
     logging.info(f"Costo total estimado: ${stats.total_cost:.6f}")
     logging.info("Script de enriquecimiento finalizado.")
 

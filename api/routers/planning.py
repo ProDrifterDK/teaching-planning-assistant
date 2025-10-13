@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 import google.generativeai as genai
+import logging
 from ..models import PlanRequest, PlanResponse
 from ..core.config import settings
+from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
 
 router = APIRouter(
@@ -66,9 +68,34 @@ async def generate_plan(
     # 3. Llamar a la API de Gemini
     try:
         model = genai.GenerativeModel('gemini-2.5-pro')
-        response = await model.generate_content_async(prompt)
+        
+        # Configuración para maximizar la respuesta y el razonamiento
+        generation_config = genai.GenerationConfig(
+            max_output_tokens=8192
+        )
+        thinking_config = genai.types.ThinkingConfig(
+            thinking_budget=-1,  # Activar pensamiento dinámico
+            include_thoughts=True
+        )
+        
+        response = await model.generate_content_async(
+            prompt,
+            generation_config=generation_config,
+            thinking_config=thinking_config
+        )
         
         # 4. Devolver la respuesta
+        # 4. Calcular costos y registrar
+        if response.usage_metadata:
+            input_tokens = response.usage_metadata.prompt_token_count
+            output_tokens = response.usage_metadata.candidates_token_count
+            thought_tokens = response.usage_metadata.thoughts_token_count if hasattr(response.usage_metadata, 'thoughts_token_count') else 0
+            
+            cost = calculate_cost(input_tokens, output_tokens + thought_tokens)
+            logging.info(f"Plan generado para OA '{request.oa_codigo_oficial}'. Costo: ${cost:.6f}, Tokens(I/O/T): {input_tokens}/{output_tokens}/{thought_tokens}")
+        
+        # 5. Devolver la respuesta
         return {"planificacion": response.text}
     except Exception as e:
+        logging.error(f"Error al generar la planificación para OA '{request.oa_codigo_oficial}': {e}")
         raise HTTPException(status_code=500, detail=f"Error al generar la planificación desde la API de Gemini: {str(e)}")
