@@ -1,0 +1,230 @@
+
+
+# **De Datos a una API Dinámica: Un Roadmap Estratégico para tu Aplicación Curricular**
+
+## **Introducción: El Corazón de tu Aplicación**
+
+Has completado con éxito la fase más ardua: la ingeniería de datos. El archivo JSON que posees es ahora una base de conocimiento semánticamente rica, que no solo contiene el currículum, sino que también lo interpreta a través del lente de la pedagogía (Taxonomía de Bloom).
+
+El siguiente paso es construir el sistema nervioso central de tu aplicación: una **API (Interfaz de Programación de Aplicaciones)**. Esta API tendrá dos misiones críticas:
+
+1. **Servir como "Motor Curricular":** Exponer tus datos de manera estructurada para que tu aplicación web o móvil pueda consultarlos y mostrar al usuario las asignaturas, cursos y objetivos de aprendizaje.  
+2. **Actuar como "Co-piloto de Planificación":** Recibir la selección del profesor, enriquecerla con el contexto de tu base de datos y comunicarse con la IA de Gemini para generar la planificación de clase.
+
+Este roadmap está diseñado para guiarte en la construcción de esta API utilizando **FastAPI**, un framework moderno de Python conocido por su increíble rendimiento y facilidad de uso.
+
+---
+
+## **Fase 1: La Fundación \- Configuración del Proyecto y Servicio de Datos**
+
+En esta fase, sentaremos las bases. Crearemos un servidor web local capaz de cargar y servir tu valioso archivo JSON.
+
+### **1.1. Elección de la Tecnología**
+
+* **Framework:** **FastAPI**. Lo elegimos por su velocidad, su documentación automática e interactiva (Swagger UI), y su soporte nativo para programación asíncrona, ideal para manejar llamadas a APIs externas como la de Gemini.  
+* **Servidor:** **Uvicorn**. Es el servidor ASGI (Asynchronous Server Gateway Interface) recomendado para ejecutar aplicaciones FastAPI.
+
+### **1.2. Pasos de Implementación**
+
+1. **Preparar el Entorno:**  
+   * Crea una nueva carpeta para tu proyecto de API.  
+   * Dentro de esa carpeta, crea un entorno virtual de Python para mantener las dependencias aisladas.  
+   * Instala las librerías necesarias:  
+     Bash  
+     pip install fastapi uvicorn
+
+2. Estructurar el Proyecto:  
+   Crea una estructura de carpetas simple para empezar:  
+   /api\_curricular/  
+   ├── data/  
+   │   └── structured\_data\_final.json  \<-- Mueve tu JSON enriquecido aquí  
+   ├── main.py                         \<-- Nuestro archivo principal de la API  
+   └── models.py                       \<-- Definiremos nuestras estructuras de datos aquí
+
+3. Cargar los Datos:  
+   En main.py, escribe el código para cargar tu JSON en memoria cuando la aplicación se inicie. Esto hará que las consultas sean increíblemente rápidas.  
+4. Crear el Primer "Endpoint":  
+   Un "endpoint" es una URL que tu aplicación puede consultar. Creemos uno simple en main.py para verificar que todo funciona.  
+   Python  
+   \# main.py  
+   from fastapi import FastAPI  
+   import json
+
+   app \= FastAPI()
+
+   \# Cargar los datos al iniciar  
+   with open("data/structured\_data\_final.json", "r", encoding="utf-8") as f:  
+       curricular\_data \= json.load(f)
+
+   @app.get("/")  
+   def read\_root():  
+       return {"message": "API del Currículum Nacional funcionando\!"}
+
+   * **Para ejecutar tu API:** En la terminal, dentro de la carpeta /api\_curricular/, ejecuta:  
+     Bash  
+     uvicorn main:app \--reload
+
+   * Abre tu navegador y ve a http://127.0.0.1:8000. Deberías ver el mensaje de bienvenida.
+
+---
+
+## **Fase 2: El Motor Curricular \- Exponiendo los Datos**
+
+Ahora haremos que la API sea útil para tu aplicación. Crearemos endpoints para que el frontend pueda obtener la lista de cursos, asignaturas y OAs.
+
+### **2.1. Definición de Modelos de Datos**
+
+Usaremos **Pydantic** (que viene con FastAPI) para definir cómo se ven nuestros datos. Esto nos da validación automática y una excelente documentación. En models.py, define las estructuras:
+
+Python
+
+\# models.py  
+from pydantic import BaseModel  
+from typing import List
+
+class OA(BaseModel):  
+    oa\_codigo\_oficial: str  
+    descripcion\_oa: str  
+    desglose\_componentes: List\[str\]  
+    habilidades: List\[str\]
+
+\#... (puedes definir más modelos para Eje, Actitud, etc.)
+
+### **2.2. Creación de Endpoints de Consulta**
+
+En main.py, añade los siguientes endpoints:
+
+1. **Endpoint para obtener todos los cursos y asignaturas:**  
+   Python  
+   \# main.py (continuación)  
+   @app.get("/niveles")  
+   def get\_niveles():  
+       niveles \= {}  
+       for item in curricular\_data:  
+           curso \= item\['curso'\]  
+           asignatura \= item\['asignatura'\]  
+           if curso not in niveles:  
+               niveles\[curso\] \=  
+           if asignatura not in niveles\[curso\]:  
+               niveles\[curso\].append(asignatura)  
+       return niveles
+
+   * *Resultado:* Esto le dará a tu app todo lo que necesita para poblar los menús desplegables de "Curso" y "Asignatura" de una sola vez.  
+2. **Endpoint para obtener los OAs de una selección específica:**  
+   Python  
+   \# main.py (continuación)  
+   from typing import List  
+   \#... (importa tus modelos de Pydantic desde models.py)
+
+   @app.get("/oas/")  
+   def get\_oas(curso: str, asignatura: str):  
+       for item in curricular\_data:  
+           if item\['curso'\] \== curso and item\['asignatura'\] \== asignatura:  
+               return item\['ejes'\] \# Devuelve la lista completa de ejes con sus OAs  
+       return {"error": "Combinación no encontrada"}
+
+   * *Resultado:* Cuando un profesor seleccione "1° Básico" y "Lenguaje y Comunicación", tu app llamará a http://127.0.0.1:8000/oas/?curso=1° Básico\&asignatura=Lenguaje y Comunicación y recibirá todos los OAs para esa selección, listos para ser mostrados.
+
+---
+
+## **Fase 3: El Co-piloto de Planificación \- Integración con la IA**
+
+Esta es la fase donde la magia ocurre. Crearemos un endpoint que reciba la selección del profesor, consulte nuestra base de datos, construya un prompt enriquecido y llame a la API de Gemini.
+
+### **3.1. Instalación de la Librería de Google**
+
+Bash
+
+pip install google-generativeai
+
+### **3.2. Creación del Endpoint de Generación**
+
+En main.py, añade el endpoint principal. Este será un POST porque recibirá datos del usuario.
+
+Python
+
+\# main.py (continuación)  
+import google.generativeai as genai
+
+\# Configura tu API Key de Google AI Studio  
+\# (Es una buena práctica usar variables de entorno para esto)  
+genai.configure(api\_key="TU\_API\_KEY\_AQUI")
+
+class PlanRequest(BaseModel):  
+    oa\_codigo\_oficial: str  
+    recurso\_principal: str  
+    nivel\_real\_estudiantes: str
+
+@app.post("/generate-plan")  
+async def generate\_plan(request: PlanRequest):  
+    \# 1\. Buscar el OA completo en nuestros datos  
+    oa\_completo \= None  
+    contexto\_asignatura \= None  
+    for item in curricular\_data:  
+        for eje in item\['ejes'\]:  
+            for oa in eje\['oas'\]:  
+                \# Limpiamos el código para que coincida  
+                codigo\_limpio \= oa\['oa\_codigo\_oficial'\].replace("Objetivo de aprendizaje ", "")  
+                if codigo\_limpio \== request.oa\_codigo\_oficial:  
+                    oa\_completo \= oa  
+                    contexto\_asignatura \= item  
+                    break  
+            if oa\_completo: break  
+        if oa\_completo: break
+
+    if not oa\_completo:  
+        return {"error": "OA no encontrado"}
+
+    \# 2\. Construir el Prompt Enriquecido (usando la plantilla que definimos)  
+    prompt \= f"""  
+    Rol: Actúa como un experto en diseño instruccional...
+
+    Contexto Curricular:  
+    \- Asignatura: {contexto\_asignatura\['asignatura'\]}  
+    \- Curso: {contexto\_asignatura\['curso'\]}  
+    \- Eje Curricular: {eje\['nombre\_eje'\]}  
+    \- Objetivo de Aprendizaje (OA) a tratar:  
+        \- Código: {oa\_completo\['oa\_codigo\_oficial'\]}  
+        \- Descripción: {oa\_completo\['descripcion\_oa'\]}  
+        \- Componentes Clave: {oa\_completo\['desglose\_componentes'\]}  
+        \- Habilidades de Bloom: {oa\_completo\['habilidades'\]}  
+    \- Actitudes a Fomentar: {\[act\['descripcion'\] for act in contexto\_asignatura\['actitudes'\]\]}
+
+    Contexto del Profesor:  
+    \- Recurso Principal: {request.recurso\_principal}  
+    \- Nivel Real de los Estudiantes: {request.nivel\_real\_estudiantes}  
+    \- Duración de la Clase: 90 minutos.
+
+    Instrucciones de Salida:... (el resto del prompt)  
+    """
+
+    \# 3\. Llamar a la API de Gemini  
+    try:  
+        model \= genai.GenerativeModel('gemini-pro') \# O el modelo que corresponda  
+        response \= await model.generate\_content\_async(prompt)  
+          
+        \# 4\. Devolver la respuesta  
+        return {"planificacion": response.text}  
+    except Exception as e:  
+        return {"error": f"Error al generar la planificación: {str(e)}"}
+
+---
+
+## **Fase 4: Puesta en Marcha y Próximos Pasos**
+
+Con las fases anteriores, ya tienes una API funcional. Ahora, hay que pensar en cómo hacerla accesible y sostenible.
+
+### **4.1. Despliegue (Deployment)**
+
+Tu API que corre en 127.0.0.1 necesita ser alojada en un servidor en la nube para que tu app pueda acceder a ella desde cualquier lugar. Opciones para empezar:
+
+* **Plataformas como Servicio (PaaS):** Servicios como **Heroku**, **Render** o **PythonAnywhere** son excelentes para desplegar prototipos de FastAPI de manera rápida y sencilla.  
+* **Máquinas Virtuales (IaaS):** Proveedores como **DigitalOcean**, **Linode** o **AWS EC2** te dan un servidor completo donde puedes instalar y correr tu aplicación, ofreciendo más control.
+
+### **4.2. Mejoras Futuras (Escalabilidad)**
+
+* **Base de Datos:** Para una aplicación en producción, cargar un JSON de varios megabytes en memoria no es ideal. El siguiente paso lógico es migrar tus datos a una base de datos. Una base de datos NoSQL como **MongoDB** es una opción natural, ya que trabaja nativamente con documentos JSON. Alternativamente, una base de datos relacional como **PostgreSQL** con su tipo de dato JSONB también es una opción excelente y muy potente.  
+* **Caching:** Las llamadas a la API de Gemini toman tiempo y tienen un costo. Implementar un sistema de "caché" (como **Redis**) puede almacenar los resultados de las planificaciones ya generadas. Si otro profesor pide una planificación con los mismos parámetros, puedes devolver el resultado guardado instantáneamente, ahorrando tiempo y dinero.  
+* **Autenticación:** A medida que tu aplicación crezca, querrás proteger tu API. Implementar un sistema de autenticación (por ejemplo, con claves de API o cuentas de usuario) será un paso crucial.
+
+Este roadmap te proporciona un camino claro desde donde estás ahora —con un dataset de oro— hasta una API completamente funcional que será el motor de tu innovadora aplicación. ¡El trabajo duro de los datos ya está hecho, ahora comienza la emocionante fase de construcción\!
