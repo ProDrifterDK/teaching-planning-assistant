@@ -29,6 +29,8 @@ class PlanRequest(BaseModel):
     oa_codigo_oficial: str = Field(..., description="El código oficial del OA para el cual generar el plan.")
     recurso_principal: str = Field(..., description="Recurso principal que el profesor planea usar (video, guía, etc.).")
     nivel_real_estudiantes: str = Field(..., description="Descripción del nivel de conocimiento actual de los estudiantes.")
+    materiales_disponibles: Optional[str] = Field(None, description="Descripción de los materiales y recursos disponibles en la sala de clases (ej: 'Solo pizarra', 'Proyector y parlantes', etc.).")
+    duracion_clase_minutos: int = Field(90, description="Duración total de la clase en minutos.")
 
 class PlanResponse(BaseModel):
     planificacion: str

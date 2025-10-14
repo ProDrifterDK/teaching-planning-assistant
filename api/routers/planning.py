@@ -95,27 +95,36 @@ async def generate_plan(
     contexto_asignatura = oa_details["contexto_asignatura"]
     eje = oa_details["eje"]
     
-    prompt = f"""
-    Rol: Actúa como un experto en diseño instruccional y un co-piloto para un profesor chileno de educación básica o media. Tu objetivo es crear una planificación de clase completa, lista para ser usada.
+    # Construcción dinámica del prompt
+    prompt_parts = [
+        "Rol: Actúa como un experto en diseño instruccional y un co-piloto para un profesor chileno. Tu objetivo es crear una planificación de clase realista, útil y lista para ser usada.",
+        "---",
+        "Contexto Curricular:",
+        f"- Asignatura: {contexto_asignatura.get('asignatura', 'N/A')}",
+        f"- Curso: {contexto_asignatura.get('curso', 'N/A')}",
+        f"- Eje Curricular: {eje.get('nombre_eje', 'N/A')}",
+        "- Objetivo de Aprendizaje (OA) a tratar:",
+        f"  - Código: {oa_completo.get('oa_codigo_oficial', 'N/A')}",
+        f"  - Descripción: {oa_completo.get('descripcion_oa', 'N/A')}",
+        f"  - Componentes Clave: {', '.join(oa_completo.get('desglose_componentes', []))}",
+        f"  - Habilidades de Bloom: {', '.join(oa_completo.get('habilidades', []))}",
+        f"- Actitudes a Fomentar: {[act.get('descripcion', '') for act in contexto_asignatura.get('actitudes', [])]}",
+        "---",
+        "Contexto del Aula:",
+        f"- Recurso Principal: {request.recurso_principal}",
+        f"- Nivel Real de los Estudiantes: {request.nivel_real_estudiantes}",
+        f"- Duración de la Clase: {request.duracion_clase_minutos} minutos."
+    ]
 
-    Contexto Curricular:
-    - Asignatura: {contexto_asignatura.get('asignatura', 'N/A')}
-    - Curso: {contexto_asignatura.get('curso', 'N/A')}
-    - Eje Curricular: {eje.get('nombre_eje', 'N/A')}
-    - Objetivo de Aprendizaje (OA) a tratar:
-        - Código: {oa_completo.get('oa_codigo_oficial', 'N/A')}
-        - Descripción: {oa_completo.get('descripcion_oa', 'N/A')}
-        - Componentes Clave: {', '.join(oa_completo.get('desglose_componentes', []))}
-        - Habilidades de Bloom: {', '.join(oa_completo.get('habilidades', []))}
-    - Actitudes a Fomentar: {[act.get('descripcion', '') for act in contexto_asignatura.get('actitudes', [])]}
+    if request.materiales_disponibles:
+        prompt_parts.append(f"- Materiales Disponibles: {request.materiales_disponibles}. Adapta las actividades estrictamente a estos materiales.")
 
-    Contexto del Profesor:
-    - Recurso Principal: {request.recurso_principal}
-    - Nivel Real de los Estudiantes: {request.nivel_real_estudiantes}
-    - Duración de la Clase: 90 minutos.
+    prompt_parts.extend([
+        "---",
+        "Instrucciones de Salida:",
+        "Genera una planificación de clase en formato Markdown. La planificación debe ser completa, realista y estar estructurada en tres fases claras: Inicio, Desarrollo y Cierre. Ajusta la duración de cada fase según la duración total de la clase. Incluye actividades concretas, distribución del tiempo, y al menos una sugerencia de evaluación formativa. Sé creativo, práctico y muy consciente de las limitaciones de materiales si fueron especificadas."
+    ])
 
-    Instrucciones de Salida:
-    Genera una planificación de clase en formato Markdown. La planificación debe ser completa y estar estructurada en tres fases claras: Inicio (15-20 min), Desarrollo (50-60 min) y Cierre (10-15 min). Debe incluir actividades concretas, distribución del tiempo, y al menos una sugerencia de evaluación formativa. Sé creativo y práctico.
-    """
+    prompt = "\n".join(prompt_parts)
 
     return StreamingResponse(stream_generator(prompt, request.oa_codigo_oficial), media_type="text/event-stream")
