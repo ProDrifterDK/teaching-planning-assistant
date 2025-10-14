@@ -1,0 +1,263 @@
+
+
+# **Actualización de la Base de Conocimientos: El Componente Grid en Material UI v7**
+
+## **I. Introducción: Desmitificando el Grid en Material UI v7**
+
+### **1.1. Resumen Ejecutivo: La Respuesta Definitiva**
+
+En Material UI (MUI) v7, se ha producido una reestructuración fundamental en el sistema de Grid para estandarizar y promover las mejores prácticas. La confusión sobre la coexistencia de \<Grid\> y \<Grid2\> se resuelve de manera definitiva: el componente que se exporta como \<Grid\> desde @mui/material/Grid es la implementación y el sucesor directo del componente que anteriormente se conocía como \<Grid2\>. Por el contrario, el componente \<Grid\> original, basado en un sistema de márgenes negativos, ha sido oficialmente deprecado y renombrado a \<GridLegacy\>.1
+
+Esta decisión estratégica significa que, para todos los nuevos desarrollos y actualizaciones a v7, el componente a utilizar es simplemente \<Grid\>. La API que los desarrolladores conocían de \<Grid2\> (más robusta y flexible) ahora reside directamente en el espacio de nombres de \<Grid\>. Por lo tanto, la observación de que la API de Grid2 está "dentro" de Grid es correcta; Grid *es* el antiguo Grid2.1
+
+### **1.2. La Razón del Cambio: Por Qué Esta Evolución Era Necesaria**
+
+La evolución del sistema de Grid no fue un simple cambio de nombre, sino una decisión motivada por la necesidad de alinear la biblioteca con los estándares modernos de desarrollo web y resolver problemas arquitectónicos inherentes a la implementación original. El nuevo \<Grid\> (anteriormente \<Grid2\>) aborda deficiencias fundamentales del sistema legado, como el desbordamiento del layout (overflow) causado por el uso de márgenes negativos, adoptando en su lugar características de CSS más modernas y predecibles como la propiedad gap.2
+
+Este cambio representa más que una corrección técnica; refleja un cambio en la filosofía de la biblioteca. La transición de MUI a través de las versiones muestra una estrategia deliberada para guiar a la comunidad de desarrolladores hacia soluciones superiores. Grid2 fue introducido inicialmente como una API experimental o "inestable", luego se estabilizó en v6 y, finalmente, en v7, fue promovido a ser el componente por defecto.1 Este proceso gradual, complementado con la provisión de herramientas de migración automática (codemods), demuestra un compromiso con la mejora continua, priorizando un rendimiento superior, un comportamiento predecible y una mejor experiencia de desarrollo (Developer Experience o DX) a largo plazo, incluso a costa de introducir cambios disruptivos controlados en una versión mayor.
+
+## **II. La Evolución Arquitectónica del Sistema Grid de MUI**
+
+### **2.1. El Sistema Original: \<GridLegacy\> (Anteriormente \<Grid\>)**
+
+La implementación original del Grid, ahora conocida como \<GridLegacy\>, fue durante mucho tiempo el pilar de la maquetación en MUI. Su arquitectura se basaba en los siguientes principios:
+
+* **Implementación**: Utilizaba CSS Flexbox como motor subyacente, ofreciendo una gran flexibilidad para la alineación y distribución de elementos.6  
+* **Mecanismo de Espaciado**: Su característica más distintiva y problemática era el uso de márgenes negativos en el Grid con la prop container. Este margen negativo se aplicaba para contrarrestar el padding añadido a los Grid con la prop item, que creaba el espaciado. Aunque era una técnica común en su momento, a menudo resultaba en la aparición de barras de desplazamiento horizontales no deseadas y problemas de desbordamiento del layout, donde el Grid se extendía más allá de los límites de su contenedor padre.2  
+* **API**: Requería que todos los hijos directos de un Grid container tuvieran explícitamente la prop item para ser tratados como elementos del grid. El dimensionamiento responsivo se gestionaba a través de props individuales para cada punto de interrupción (breakpoint), como xs={12}, sm={6}, etc..2  
+* **Estado Actual**: En MUI v7, para seguir utilizando este componente (lo cual no se recomienda para nuevos desarrollos), se debe importar explícitamente desde @mui/material/GridLegacy. Su clase CSS raíz también ha cambiado a .MuiGridLegacy-root para evitar colisiones.1
+
+### **2.2. El Sucesor: El Ascenso de \<Grid2\>**
+
+Para superar las limitaciones del sistema original, MUI introdujo \<Grid2\>, un componente rediseñado desde cero con un enfoque más moderno. Sus mejoras clave fueron:
+
+* **Implementación**: Aunque seguía utilizando CSS Flexbox para mantener la máxima flexibilidad, su enfoque interno fue completamente modernizado.6  
+* **Mecanismo de Espaciado**: El cambio más significativo fue el abandono de los márgenes negativos en favor de las propiedades CSS gap, rowSpacing y columnSpacing. Este enfoque es más predecible, se alinea con los estándares modernos de CSS y elimina por completo el problema del desbordamiento del contenedor.2  
+* **Mejoras en la API**:  
+  * La prop item se volvió innecesaria. Todos los hijos directos de un Grid container se tratan implícitamente como ítems, lo que reduce la verbosidad del código.2  
+  * Las props de dimensionamiento responsivo se consolidaron en una única prop size, que acepta un número (ej. size={6}) o un objeto responsivo (ej. size={{ xs: 12, sm: 6 }}), haciendo la API más limpia y coherente.2  
+  * El valor booleano true para el dimensionamiento automático (ej. \<Grid xs\>) fue reemplazado por el valor de cadena más descriptivo "grow" (ej. \<Grid size="grow"\>), que se traduce directamente a flex-grow: 1\.2  
+* **Personalización**: Se implementó utilizando variables CSS. Esto reduce drásticamente la especificidad de los selectores CSS, haciendo que la personalización y la sobreescritura de estilos a través de la prop sx sea mucho más sencilla y fiable.2
+
+### **2.3. La Unificación en v7: Un Nuevo Estándar**
+
+Con la llegada de MUI v7, el proceso de transición culminó. El equipo de MUI tomó la decisión de establecer \<Grid2\> como el estándar definitivo. En v7, el componente \<Grid2\> fue movido al espacio de nombres de \<Grid\>. Esto significa que todas las importaciones que antes apuntaban a @mui/material/Grid2 ahora deben apuntar a @mui/material/Grid. De manera similar, la clase CSS raíz se unificó de .MuiGrid2-root a .MuiGrid-root, consolidando su estatus como el componente Grid por defecto.1
+
+Este movimiento final es un ejemplo de buen diseño de API, donde el "mejor" camino se convierte en el "más fácil". Al hacer que el componente superior sea el predeterminado, MUI elimina la carga cognitiva para los desarrolladores, especialmente para los recién llegados, que ya no se enfrentan a la elección entre dos implementaciones de Grid en competencia. En v5 y v6, un desarrollador necesitaba conocer la existencia de Grid2 y optar conscientemente por sus beneficios. En v7, el camino de menor resistencia conduce directamente a la implementación moderna y superior. Esto simplifica la documentación, los tutoriales y el soporte de la comunidad, fortaleciendo la salud del ecosistema a largo plazo.
+
+### **2.4. Tabla Comparativa: \<GridLegacy\> vs. \<Grid\> Moderno**
+
+La siguiente tabla resume las diferencias clave entre las dos implementaciones para proporcionar una referencia rápida y clara.
+
+| Característica / Aspecto | \<GridLegacy\> (El Grid Original) | El \<Grid\> Moderno (Basado en Grid2) |
+| :---- | :---- | :---- |
+| **Ruta de Importación Principal (v7)** | import Grid from '@mui/material/GridLegacy'; | import Grid from '@mui/material/Grid'; |
+| **Mecanismo de Espaciado** | Márgenes negativos en el contenedor | Propiedad CSS gap |
+| **Comportamiento de Desbordamiento** | Propenso a desbordar su contenedor padre | Contenido dentro de los límites de su padre |
+| **Declaración de Ítem** | Requiere la prop item en los hijos | Todos los hijos directos son ítems implícitos |
+| **Props de Dimensionamiento** | Props individuales por breakpoint (xs, sm, etc.) | Una única prop size con objeto responsivo (size={{...}}) |
+| **Prop de Ancho Automático** | xs={true} | size="grow" |
+| **Props de Desplazamiento (offset)** | Props individuales por breakpoint (xsOffset, etc.) | Una única prop offset con objeto responsivo (offset={{...}}) |
+| **Clase CSS Raíz** | .MuiGridLegacy-root | .MuiGrid-root |
+| **Personalización** | Mayor especificidad CSS, más difícil de sobreescribir | Menor especificidad, usa variables CSS para un estilizado más fácil |
+| **Grids Anidados** | Sujeto a limitaciones y problemas de márgenes | Sin límite de profundidad, anidamiento limpio |
+
+## **III. Análisis en Profundidad de la API del \<Grid\> Moderno (v7.3.4)**
+
+### **3.1. Conceptos Centrales y Uso**
+
+La API del Grid moderno está diseñada para ser intuitiva y potente, basándose en conceptos claros de Flexbox.
+
+* **Contenedor y Ítems**: Para crear una maquetación, se necesita un Grid con la prop container. Esta prop lo convierte en un contenedor flex. Cualquier componente \<Grid\> (o cualquier otro elemento) anidado directamente dentro de un Grid container es tratado como un ítem flex, simplificando el modelo mental y reduciendo la verbosidad.6  
+* **Sistema de 12 Columnas**: Por defecto, el Grid opera en un sistema de 12 columnas. Los anchos de los ítems se establecen como un número entero entre 1 y 12, que se traduce a un porcentaje del ancho del contenedor. Por ejemplo, size={6} ocupará el 50% del espacio disponible. Esto asegura un layout fluido y responsivo.6
+
+A continuación, un ejemplo de un layout básico:
+
+JavaScript
+
+import \* as React from 'react';  
+import Grid from '@mui/material/Grid';  
+import Paper from '@mui/material/Paper';  
+import { styled } from '@mui/material/styles';
+
+const Item \= styled(Paper)(({ theme }) \=\> ({  
+  padding: theme.spacing(1),  
+  textAlign: 'center',  
+  color: theme.palette.text.secondary,  
+}));
+
+export default function BasicGrid() {  
+  return (  
+    \<Grid container spacing\={2}\>  
+      \<Grid size\={8}\>  
+        \<Item\>size=8\</Item\>  
+      \</Grid\>  
+      \<Grid size\={4}\>  
+        \<Item\>size=4\</Item\>  
+      \</Grid\>  
+      \<Grid size\={4}\>  
+        \<Item\>size=4\</Item\>  
+      \</Grid\>  
+      \<Grid size\={8}\>  
+        \<Item\>size=8\</Item\>  
+      \</Grid\>  
+    \</Grid\>  
+  );  
+}
+
+### **3.2. Desglose Exhaustivo de Props**
+
+La potencia del Grid moderno reside en su API concisa y flexible.
+
+* **Control de Layout**:  
+  * container: Booleano que define el componente como un contenedor flex.  
+  * spacing, rowSpacing, columnSpacing: Controlan el espacio entre los ítems utilizando la propiedad CSS gap. spacing aplica el mismo espacio para filas y columnas, mientras que rowSpacing y columnSpacing permiten un control más granular.6  
+  * direction: Define el eje principal del contenedor ('row', 'column', etc.), mapeando directamente a flex-direction.  
+  * columns: Permite cambiar el número total de columnas en el grid (por defecto es 12).  
+* **Dimensionamiento Responsivo**:  
+  * size: Esta es la prop principal para definir el ancho de un ítem. Acepta:  
+    * Un número: size={6} (ocupa 6 de 12 columnas).  
+    * La cadena "grow": size="grow" (ocupa todo el espacio restante, equivalente a flex-grow: 1).  
+    * Un objeto responsivo: size={{ xs: 12, md: 6 }} (ocupa 12 columnas en pantallas pequeñas y 6 en medianas y superiores).5  
+* **Posicionamiento y Desplazamiento**:  
+  * offset: Permite desplazar un ítem un número determinado de columnas hacia la derecha. También admite un objeto responsivo (offset={{ md: 2 }}) y un valor especial "auto", que empuja el ítem hacia el extremo derecho del contenedor al aplicar margin-left: auto.6  
+* **Otras Props**:  
+  * wrap: Controla si los ítems deben pasar a la siguiente línea cuando no hay espacio suficiente. Mapea a la propiedad flex-wrap (por defecto es 'wrap').7
+
+### **3.3. Patrones de Uso Avanzados**
+
+La combinación de estas props permite crear layouts complejos y altamente adaptables.
+
+* **Grids Anidados**: La arquitectura del Grid moderno, al no depender de márgenes negativos, permite anidar grids sin límite de profundidad y sin causar problemas de espaciado acumulativo. Un Grid item puede ser a su vez un Grid container.2  
+* **Valores Responsivos**: La mayoría de las props clave, incluyendo direction, spacing, offset y columns, aceptan la sintaxis de objeto responsivo. Esto permite cambiar drásticamente la estructura del layout en diferentes tamaños de pantalla con una sintaxis declarativa y limpia.6  
+* **Auto-layout**: El Grid gestiona automáticamente el salto de línea. Si la suma de los valores size de los ítems en una fila excede el total de columnas, los ítems sobrantes pasarán a la siguiente línea. La prop size="grow" es particularmente útil en combinación con ítems de tamaño fijo para crear componentes que llenen el espacio restante de forma flexible.6
+
+## **IV. Guía Práctica de Migración al Grid de v7**
+
+### **4.1. Prerrequisitos: Actualización a MUI v7**
+
+Antes de abordar la migración específica del componente Grid, es un requisito indispensable que el proyecto actualice sus dependencias principales de Material UI a la versión 7\. Esto incluye paquetes como @mui/material, @mui/system, @mui/icons-material, entre otros. El Grid de v7 depende de la estructura del tema y otras actualizaciones del ecosistema de v7 para funcionar correctamente.1
+
+### **4.2. Escenario 1: Actualización desde \<Grid2\> (v5/v6)**
+
+Esta es la ruta de migración más sencilla. Dado que el Grid de v7 es funcionalmente idéntico al Grid2 de versiones anteriores, el proceso se centra en actualizar las referencias.
+
+La acción principal es actualizar todas las rutas de importación de @mui/material/Grid2 a @mui/material/Grid. Esto se puede hacer manualmente o con una búsqueda y reemplazo global en el proyecto.
+
+**Ejemplo de cambio:**
+
+Diff
+
+\-// imports  
+\-import Grid, { grid2Classes as gridClasses, Grid2Props as GridProps } from '@mui/material/Grid2';  
+\+import Grid, { gridClasses, GridProps } from '@mui/material/Grid';
+
+\-// CSS classes (en archivos de estilo o selectores de theme)  
+\-.MuiGrid2-root  
+\+.MuiGrid-root
+
+Aunque un codemod no es estrictamente necesario, revisar el proyecto asegura la consistencia en todas las importaciones y referencias de clases CSS.1
+
+### **4.3. Escenario 2: Actualización desde el \<Grid\> Legado (v5/v6)**
+
+Esta migración es más compleja, ya que implica cambios tanto en la API como en el comportamiento del layout. Se recomienda seguir un proceso estructurado.
+
+#### **Paso 1: Actualizar Importaciones (Manual)**
+
+El primer paso es preparar el código para la transformación. Si se desea continuar usando temporalmente el Grid antiguo durante la migración, se deben cambiar las importaciones a @mui/material/GridLegacy. Para realizar la actualización completa, se ejecutarán los siguientes pasos.1
+
+#### **Paso 2: Ejecutar el Codemod**
+
+Material UI proporciona una herramienta de transformación de código (codemod) que automatiza la mayor parte de la conversión de props. Ejecute el siguiente comando en la raíz de su proyecto:
+
+npx @mui/codemod v7.0.0/grid-props \<path/to/folder\>
+
+Este comando buscará en la ruta especificada los usos del Grid y convertirá las props antiguas (ej. xs={6}, smOffset={2}) al nuevo formato de objeto responsivo (ej. size={{ xs: 6 }}, offset={{ sm: 2 }}).1
+
+#### **Paso 3: Eliminar Props Legadas**
+
+Tras ejecutar el codemod, es necesario realizar una revisión manual para eliminar props que ya no existen en la nueva API. Las props item y zeroMinWidth han sido eliminadas y pueden ser borradas de forma segura de todo el código.2
+
+#### **Paso 4: Revisar y Verificar**
+
+Este es el paso más crítico. La migración puede introducir regresiones visuales sutiles debido al cambio fundamental en el mecanismo de espaciado. El paso de márgenes negativos a gap altera cómo el Grid interactúa con su contenedor padre. Mientras que los márgenes negativos hacían que el contenedor se "expandiera" visualmente para compensar el padding interno, gap aplica el espacio *entre* los ítems sin afectar las dimensiones externas del contenedor.2
+
+Un layout que dependía, consciente o inconscientemente, de este comportamiento de desbordamiento podría parecer que tiene un espaciado diferente o estar desalineado después de la migración. El codemod no puede solucionar este cambio de comportamiento. Por lo tanto, es esencial probar exhaustivamente todos los layouts, prestando especial atención a los contenedores padres que puedan tener estilos como overflow: hidden o padding.
+
+## **V. Distinción Esencial: \<Grid\> de Layout vs. \<DataGrid\> de MUI X**
+
+### **5.1. Aclarando Propósito y Funcionalidad**
+
+Es de vital importancia no confundir el componente \<Grid\> de layout con el componente \<DataGrid\> de MUI X. La sobrecarga del término "Grid" puede llevar a una contaminación del conocimiento y a errores conceptuales graves.
+
+* **\<Grid\> (@mui/material)**: Es una herramienta de **maquetación de UI** basada en CSS Flexbox. Su único propósito es organizar y alinear componentes en una página de manera responsiva. No tiene conocimiento del contenido que muestra; simplemente lo posiciona en un sistema de rejilla.6  
+* **\<DataGrid\> (@mui/x-data-grid)**: Es un componente de **visualización de datos tabulares** de alta complejidad. Está diseñado para mostrar y manipular grandes conjuntos de datos en formato de tabla, e incluye funcionalidades avanzadas como ordenación, filtrado, paginación, virtualización de filas y columnas, edición en línea, y más.9
+
+Para evitar la confusión, es crucial entender que los siguientes conceptos **NO se aplican** al \<Grid\> de layout y son **exclusivos** del \<DataGrid\> de MUI X:
+
+* Props como rows, columns, slots, slotProps.  
+* Definiciones de columnas (GridColDef).  
+* La referencia a la API (apiRef).  
+* Funciones de renderizado personalizado como renderCell.  
+* Conceptos como valueGetter o valueFormatter.  
+* Roles ARIA como role="gridcell" o role="treegrid".
+
+Un modelo de lenguaje que asocie estas características con el \<Grid\> de layout generará código incorrecto y explicaciones sin sentido. Esta sección debe actuar como un "cortafuegos" conceptual para prevenir dicha contaminación del conocimiento.
+
+### **5.2. Paquete, Versionado y Ecosistema**
+
+La distinción también se extiende al ecosistema de paquetes y su modelo de negocio.
+
+* **\<Grid\>**: Forma parte del paquete @mui/material, que es completamente gratuito y de código abierto (licencia MIT).11  
+* **\<DataGrid\>**: Pertenece a la familia de componentes avanzados MUI X, distribuidos bajo el paquete @mui/x-data-grid. MUI X tiene un modelo de negocio dual: ofrece una versión Community gratuita con funcionalidades básicas y versiones comerciales Pro y Premium con características avanzadas bajo una licencia comercial.12
+
+Además, las estrategias de versionado no siempre están alineadas. Es común que las versiones mayores de @mui/material y @mui/x-data-grid no coincidan. Por ejemplo, @mui/material v6 fue lanzado junto a @mui/x-data-grid v7.14 Esto es un detalle crucial a tener en cuenta para la gestión de dependencias en un proyecto.
+
+## **VI. La Actualización del Grid en el Contexto del Lanzamiento de Material UI v7**
+
+### **6.1. Modernización Arquitectónica: ESM y Estructura del Paquete**
+
+La actualización del Grid no es un evento aislado, sino parte de una modernización arquitectónica más amplia en MUI v7. El cambio más significativo es la reestructuración de los paquetes para soportar adecuadamente ECMAScript Modules (ESM) a través del campo exports en package.json. Esta actualización resuelve problemas de larga data con empaquetadores modernos como Vite y Webpack, y permite la carga nativa de los paquetes de MUI en entornos Node.js que utilizan ESM.16
+
+Una consecuencia directa de esta reestructuración es que las importaciones profundas (deep imports) ya no están soportadas. Una importación como import Box from '@mui/system/Box/Box' ahora fallará y debe ser corregida a import Box from '@mui/system/Box'. Este cambio arquitectónico es la base sobre la que se asienta toda la versión v7.8
+
+### **6.2. Consistencia de la API y Deprecaciones**
+
+El lanzamiento de v7 también fue una oportunidad para limpiar la superficie de la API, eliminando funcionalidades que habían sido deprecadas en versiones anteriores. El objetivo era crear una experiencia de desarrollo más consistente y moderna.
+
+* La función createMuiTheme fue eliminada en favor de createTheme.  
+* El componente Hidden, utilizado para ocultar elementos en ciertos breakpoints, fue eliminado. La recomendación es usar la prop sx con utilidades de display (ej. sx={{ display: { xs: 'none', md: 'block' } }}).  
+* La función experimentalStyled fue eliminada, consolidando todo el uso en la función styled.1
+
+La evolución del Grid encaja perfectamente en esta narrativa de modernización. Al igual que el Grid consolidó sus props en una API más estructurada (size={{...}}) y el componente Hidden fue reemplazado por una solución más flexible basada en props (sx), la tendencia general en v7 es alejarse de componentes especializados y funciones legadas hacia una API más potente, consistente y componible, centrada en primitivas centrales como la prop sx y createTheme.
+
+### **6.3. Una Nota sobre Material Design 3 (M3)**
+
+Aunque la actualización a v7 trae consigo numerosas modernizaciones, es importante aclarar el estado de la implementación de Material Design 3 (M3) de Google. Material UI v7 continúa su implementación del sistema de diseño de Google, pero la adopción de M3 es un proceso continuo y no está completa en esta versión.
+
+Por ejemplo, mientras que Google ha introducido los "Material Symbols" como sucesores de los "Material Icons", el paquete @mui/icons-material actualmente solo soporta los iconos tradicionales. Aún no hay soporte para los nuevos símbolos.18 Los desarrolladores deben ser conscientes de que, si bien MUI se alinea con la filosofía de Material Design, la paridad de características con las últimas especificaciones de M3 es un objetivo a largo plazo que se irá alcanzando en futuras versiones.19
+
+#### **Works cited**
+
+1. Upgrade to v7 \- Material UI \- MUI, accessed October 14, 2025, [https://mui.com/material-ui/migration/upgrade-to-v7/](https://mui.com/material-ui/migration/upgrade-to-v7/)  
+2. Upgrade to Grid v2 \- Material UI \- MUI, accessed October 14, 2025, [https://mui.com/material-ui/migration/upgrade-to-grid-v2/](https://mui.com/material-ui/migration/upgrade-to-grid-v2/)  
+3. MUI Grid2 item showing error in typescript \- Stack Overflow, accessed October 14, 2025, [https://stackoverflow.com/questions/79579162/mui-grid2-item-showing-error-in-typescript](https://stackoverflow.com/questions/79579162/mui-grid2-item-showing-error-in-typescript)  
+4. Upgrade to v6 \- MUI System, accessed October 14, 2025, [https://mui.com/system/migration/migrating-to-v6/](https://mui.com/system/migration/migrating-to-v6/)  
+5. Upgrade to v6 \- Material UI \- MUI, accessed October 14, 2025, [https://mui.com/material-ui/migration/upgrade-to-v6/](https://mui.com/material-ui/migration/upgrade-to-v6/)  
+6. React Grid component \- Material UI \- MUI, accessed October 14, 2025, [https://mui.com/material-ui/react-grid/](https://mui.com/material-ui/react-grid/)  
+7. Grid2 API \- Material UI \- MUI, accessed October 14, 2025, [https://v6.mui.com/material-ui/api/grid-2/](https://v6.mui.com/material-ui/api/grid-2/)  
+8. Everything to know on upgrading to MUI v7 | by Mallika Patil \- Medium, accessed October 14, 2025, [https://medium.com/@mallikampatil/everything-to-know-on-upgrading-to-mui-v7-1874f72bb230](https://medium.com/@mallikampatil/everything-to-know-on-upgrading-to-mui-v7-1874f72bb230)  
+9. Migration from v6 to v7 \- MUI X, accessed October 14, 2025, [https://mui.com/x/migration/migration-data-grid-v6/](https://mui.com/x/migration/migration-data-grid-v6/)  
+10. Migration from v5 to v6 \- MUI X, accessed October 14, 2025, [https://mui.com/x/migration/migration-data-grid-v5/](https://mui.com/x/migration/migration-data-grid-v5/)  
+11. @mui/material \- npm, accessed October 14, 2025, [https://www.npmjs.com/package/@mui/material](https://www.npmjs.com/package/@mui/material)  
+12. @mui/material v7.3.4 Bundlephobia, accessed October 14, 2025, [https://bundlephobia.com/package/@mui/material](https://bundlephobia.com/package/@mui/material)  
+13. Releases · mui/mui-x \- GitHub, accessed October 14, 2025, [https://github.com/mui/mui-x/releases](https://github.com/mui/mui-x/releases)  
+14. Migration Guide for Material UI from v5 to v6 \- Refine dev, accessed October 14, 2025, [https://refine.dev/docs/ui-integrations/material-ui/migration-guide/material-ui-v5-to-v6/](https://refine.dev/docs/ui-integrations/material-ui/migration-guide/material-ui-v5-to-v6/)  
+15. Migration Guide for Material UI from v5 to v6 \- Refine dev, accessed October 14, 2025, [https://refine.dev/docs/4.xx.xx/ui-integrations/material-ui/migration-guide/material-ui-v5-to-v6/](https://refine.dev/docs/4.xx.xx/ui-integrations/material-ui/migration-guide/material-ui-v5-to-v6/)  
+16. Upgrade to v7 \- MUI System, accessed October 14, 2025, [https://mui.com/system/migration/upgrade-to-v7/](https://mui.com/system/migration/upgrade-to-v7/)  
+17. Material UI v7 is here \- MUI, accessed October 14, 2025, [https://mui.com/blog/material-ui-v7-is-here/](https://mui.com/blog/material-ui-v7-is-here/)  
+18. Material Icons \- Material UI \- MUI, accessed October 14, 2025, [https://mui.com/material-ui/material-icons/](https://mui.com/material-ui/material-icons/)  
+19. States – Material Design 3, accessed October 14, 2025, [https://m3.material.io/foundations/interaction/states](https://m3.material.io/foundations/interaction/states)  
+20. Progress indicators – Material Design 3, accessed October 14, 2025, [https://m3.material.io/components/progress-indicators/overview](https://m3.material.io/components/progress-indicators/overview)  
+21. Components — Material Design 3, accessed October 14, 2025, [https://m3.material.io/components](https://m3.material.io/components)  
+22. Material Design 3 \- Google's latest open source design system, accessed October 14, 2025, [https://m3.material.io/](https://m3.material.io/)
