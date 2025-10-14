@@ -95,9 +95,9 @@ async def generate_plan(
     contexto_asignatura = oa_details["contexto_asignatura"]
     eje = oa_details["eje"]
     
-    # Construcción dinámica del prompt
+    # --- Construcción Dinámica del Prompt ---
     prompt_parts = [
-        "Rol: Actúa como un experto en diseño instruccional y un co-piloto para un profesor chileno. Tu objetivo es crear una planificación de clase realista, útil y lista para ser usada.",
+        "Rol: Actúa como un experto en diseño instruccional y un co-piloto para un profesor chileno. Tu objetivo es crear una planificación de clase realista, útil, inclusiva y lista para ser usada.",
         "---",
         "Contexto Curricular:",
         f"- Asignatura: {contexto_asignatura.get('asignatura', 'N/A')}",
@@ -111,18 +111,41 @@ async def generate_plan(
         f"- Actitudes a Fomentar: {[act.get('descripcion', '') for act in contexto_asignatura.get('actitudes', [])]}",
         "---",
         "Contexto del Aula:",
-        f"- Recurso Principal: {request.recurso_principal}",
-        f"- Nivel Real de los Estudiantes: {request.nivel_real_estudiantes}",
         f"- Duración de la Clase: {request.duracion_clase_minutos} minutos."
     ]
-
+    if request.numero_estudiantes:
+        prompt_parts.append(f"- Número de Estudiantes: {request.numero_estudiantes}")
+    if request.clima_de_aula:
+        prompt_parts.append(f"- Clima y Dinámica del Grupo: {request.clima_de_aula}")
+    if request.diversidad_aula:
+        prompt_parts.append(f"- Diversidad en el Aula: {request.diversidad_aula}")
     if request.materiales_disponibles:
         prompt_parts.append(f"- Materiales Disponibles: {request.materiales_disponibles}. Adapta las actividades estrictamente a estos materiales.")
 
     prompt_parts.extend([
         "---",
+        "Contexto Pedagógico:",
+        f"- Recurso Principal: {request.recurso_principal}",
+        f"- Nivel Real de los Estudiantes: {request.nivel_real_estudiantes}"
+    ])
+    if request.conocimientos_previos_requeridos:
+        prompt_parts.append(f"- Conocimientos Previos a Reforzar: {request.conocimientos_previos_requeridos}")
+    if request.estilo_docente_preferido:
+        prompt_parts.append(f"- Estilo Docente Preferido: {request.estilo_docente_preferido}")
+    if request.tipo_evaluacion_formativa:
+        prompt_parts.append(f"- Tipo de Evaluación Formativa Deseada: {request.tipo_evaluacion_formativa}")
+    if request.contexto_unidad:
+        prompt_parts.append(f"- Momento de la Unidad: {request.contexto_unidad}")
+        
+    prompt_parts.extend([
+        "---",
         "Instrucciones de Salida:",
-        "Genera una planificación de clase en formato Markdown. La planificación debe ser completa, realista y estar estructurada en tres fases claras: Inicio, Desarrollo y Cierre. Ajusta la duración de cada fase según la duración total de la clase. Incluye actividades concretas, distribución del tiempo, y al menos una sugerencia de evaluación formativa. Sé creativo, práctico y muy consciente de las limitaciones de materiales si fueron especificadas."
+        "Genera una planificación de clase en formato Markdown. La planificación debe ser completa, realista, inclusiva y estar estructurada en tres fases claras: Inicio, Desarrollo y Cierre.",
+        "Ajusta la duración de cada fase según la duración total de la clase.",
+        "Considera todas las restricciones y contextos proporcionados para crear actividades y evaluaciones coherentes y aplicables.",
+        "Si se mencionó diversidad, sugiere adaptaciones específicas (ej. 'Para los estudiantes con TEA...').",
+        "Si se pidió reforzar conocimientos previos, diseña una actividad de Inicio explícita para ello.",
+        "Si se pidió un tipo de evaluación, detalla esa actividad en el Cierre."
     ])
 
     prompt = "\n".join(prompt_parts)
