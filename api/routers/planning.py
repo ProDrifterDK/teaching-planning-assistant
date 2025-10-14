@@ -1,13 +1,15 @@
+from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from google.genai import types
 import google.genai as genai
 import logging
 import json
-from ..models import PlanRequest, StreamThought, StreamAnswer
+from ..models import PlanRequest, StreamThought, StreamAnswer, User
 from ..core.config import settings
 from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
+from .auth import get_current_active_user
 
 router = APIRouter(
     prefix="/planning",
@@ -82,7 +84,8 @@ Ejemplo de evento de 'respuesta':
 )
 async def generate_plan(
     request: PlanRequest,
-    service: CurriculumService = Depends(get_curriculum_service)
+    service: CurriculumService = Depends(get_curriculum_service),
+    current_user: User = Depends(get_current_active_user)
 ):
     if not settings.GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="La API de Gemini no está configurada.")

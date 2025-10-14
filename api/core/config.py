@@ -11,11 +11,17 @@ class Settings(BaseSettings):
     """
     APP_NAME: str = "API de Planificación Curricular"
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    
+    # --- JWT Settings ---
+    # Para generar una buena clave secreta, puedes usar: openssl rand -hex 32
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "a_super_secret_key_for_development")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     class Config:
-        # Esto permite que Pydantic lea desde un archivo .env si es necesario,
-        # aunque ya lo estamos haciendo con load_dotenv. Es una buena práctica.
         env_file = ".env"
+        # Esto permite que Pydantic ignore campos extra si se definen en el .env
+        extra = 'ignore'
 
 # Instancia única de la configuración para ser usada en toda la app
 settings = Settings()

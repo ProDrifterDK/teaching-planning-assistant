@@ -1,7 +1,7 @@
 import logging
 import sys
 from fastapi import FastAPI
-from .routers import curriculum, planning
+from .routers import curriculum, planning, auth
 
 # --- Configuración de Logging ---
 # Configura el logger raíz para que los logs de los módulos aparezcan en la consola de uvicorn
@@ -15,6 +15,7 @@ app = FastAPI(
 
 app.include_router(curriculum.router)
 app.include_router(planning.router)
+app.include_router(auth.router)
 
 @app.get("/", tags=["General"])
 def read_root():
