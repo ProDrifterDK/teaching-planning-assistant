@@ -84,8 +84,8 @@ Ejemplo de evento de 'respuesta':
 )
 async def generate_plan(
     request: PlanRequest,
-    service: CurriculumService = Depends(get_curriculum_service),
-    current_user: User = Depends(get_current_active_user)
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    service: CurriculumService = Depends(get_curriculum_service)
 ):
     if not settings.GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="La API de Gemini no está configurada.")

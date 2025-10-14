@@ -73,20 +73,26 @@ class StreamAnswer(BaseModel):
     type: str = "answer"
     content: str
 
-# --- Modelos para Autenticación ---
+# --- Modelos para Autenticación y Usuarios ---
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-class TokenData(BaseModel):
-    username: Optional[str] = None
-
-class User(BaseModel):
+class UserBase(BaseModel):
     username: str
-    email: Optional[str] = None
+    email: str
     full_name: Optional[str] = None
-    disabled: Optional[bool] = None
+
+class UserCreate(UserBase):
+    password: str
+
+class UserUpdate(BaseModel):
+    is_active: bool
+
+class User(UserBase):
+    is_active: bool
+    role: str
 
 class UserInDB(User):
     hashed_password: str
