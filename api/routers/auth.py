@@ -2,21 +2,25 @@ from datetime import timedelta
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
 
 from ..core import security
 from ..core.config import settings
 from ..models import Token, User, UserCreate, UserUpdate
-from ..services.user_service import UserService, get_user_service
+from ..services.user_service import UserService
+from ..db.session import get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Users"])
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
 
+user_service = UserService()
+
 # --- Dependency Functions ---
 
-async def get_current_user(
+def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
-    user_service: UserService = Depends(get_user_service),
+    db: Session = Depends(get_db),
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -24,19 +28,19 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     username = security.verify_token(token, credentials_exception)
-    user = user_service.get_user(username=username)
+    user = user_service.get_user(db=db, username=username)
     if user is None:
         raise credentials_exception
-    return User(**user.dict())
+    return user
 
-async def get_current_active_user(
+def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
-async def get_current_admin_user(
+def get_current_admin_user(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ) -> User:
     if current_user.role != "admin":
@@ -51,13 +55,13 @@ async def get_current_admin_user(
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    user_service: UserService = Depends(get_user_service),
+    db: Session = Depends(get_db),
 ):
-    user = user_service.authenticate_user(form_data.username, form_data.password)
+    user = user_service.authenticate_user(db, form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password, or inactive user",
+            detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -70,13 +74,17 @@ async def login_for_access_token(
 @router.post("/users/", response_model=User, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_create: UserCreate,
-    user_service: UserService = Depends(get_user_service),
+    db: Session = Depends(get_db),
 ):
-    db_user = user_service.get_user(username=user_create.username)
+    db_user = user_service.get_user(db=db, username=user_create.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
     
-    new_user = user_service.create_user(user_create)
+    db_user_email = user_service.get_user_by_email(db=db, email=user_create.email)
+    if db_user_email:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    new_user = user_service.create_user(db=db, user_create=user_create)
     return new_user
 
 @router.get("/users/me", response_model=User)
@@ -89,10 +97,10 @@ async def read_users_me(
 async def update_user_status(
     username: str,
     user_update: UserUpdate,
+    db: Session = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user),
-    user_service: UserService = Depends(get_user_service),
 ):
-    user_to_update = user_service.update_user_status(username, user_update.is_active)
+    user_to_update = user_service.update_user_status(db, username, user_update.is_active)
     if not user_to_update:
         raise HTTPException(status_code=404, detail="User not found")
     return user_to_update

@@ -2,10 +2,14 @@ import logging
 import sys
 from fastapi import FastAPI
 from .routers import curriculum, planning, auth
+from .db.session import Base, engine
 
 # --- Configuración de Logging ---
 # Configura el logger raíz para que los logs de los módulos aparezcan en la consola de uvicorn
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+
+# Crea las tablas de la base de datos al iniciar la aplicación
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="API de Planificación Curricular",

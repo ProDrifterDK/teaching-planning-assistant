@@ -94,5 +94,8 @@ class User(UserBase):
     is_active: bool
     role: str
 
+    class Config:
+        from_attributes = True
+
 class UserInDB(User):
     hashed_password: str
