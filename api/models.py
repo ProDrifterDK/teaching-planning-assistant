@@ -6,14 +6,14 @@ class Attitude(BaseModel):
     descripcion: str
 
 class OA(BaseModel):
-    oa_codigo_oficial: str = Field(..., description="Código oficial del Objetivo de Aprendizaje.")
-    descripcion_oa: str = Field(..., description="Descripción detallada del Objetivo de Aprendizaje.")
-    desglose_componentes: List[str] = Field(default_factory=list, description="Lista de componentes o ejemplos del OA.")
-    habilidades: List[str] = Field(default_factory=list, description="Habilidades de la Taxonomía de Bloom asociadas.")
+    oa_codigo_oficial: str
+    descripcion_oa: str
+    desglose_componentes: List[str] = Field(default_factory=list)
+    habilidades: List[str] = Field(default_factory=list)
 
 class Eje(BaseModel):
-    nombre_eje: str = Field(..., description="Nombre del eje curricular.")
-    oas: List[OA] = Field(..., description="Lista de Objetivos de Aprendizaje pertenecientes a este eje.")
+    nombre_eje: str
+    oas: List[OA]
 
 class AsignaturaCurso(BaseModel):
     asignatura: str
@@ -26,23 +26,41 @@ class NivelDetail(BaseModel):
     asignaturas: List[str]
 
 class PlanRequest(BaseModel):
-    # Contexto Curricular Esencial
-    oa_codigo_oficial: str = Field(..., description="El código oficial del OA para el cual generar el plan, ej: 'LE07 OA 03'.")
-
-    # Contexto del Aula y Pedagógico (Inputs del Profesor)
-    recurso_principal: str = Field(..., description="Recurso principal que el profesor planea usar (ej: 'El cuento El gigante egoísta').")
-    nivel_real_estudiantes: str = Field(..., description="Descripción del nivel de conocimiento previo de los estudiantes (ej: 'Nivel de 6° Básico en comprensión').")
-    materiales_disponibles: Optional[str] = Field(None, description="Materiales específicos disponibles (ej: 'Pizarra, proyector, hojas blancas').")
-    duracion_clase_minutos: int = Field(90, description="Duración total de la clase en minutos.")
+    oa_codigo_oficial: str = Field(..., description="Código oficial del OA a planificar.")
     
-    # Nuevos Parámetros de Contexto
-    numero_estudiantes: Optional[int] = Field(None, description="Cantidad de estudiantes en el curso.")
-    diversidad_aula: Optional[str] = Field(None, description="Información sobre diversidad en el aula, incluyendo estudiantes con NEE, PIE, etc.")
-    clima_de_aula: Optional[str] = Field(None, description="Descripción de la dinámica y comportamiento del grupo (ej: 'Son conversadores y les gusta debatir').")
-    estilo_docente_preferido: Optional[str] = Field(None, description="Enfoque metodológico preferido por el docente (ej: 'Aprendizaje Basado en Proyectos', 'Clase invertida').")
-    tipo_evaluacion_formativa: Optional[str] = Field(None, description="Tipo específico de evaluación formativa deseada (ej: 'Ticket de Salida con 2 preguntas', 'Crear un mini-cómic').")
-    contexto_unidad: Optional[str] = Field(None, description="Información sobre en qué parte de la unidad se encuentra la clase (ej: 'Clase de inicio de la Unidad 2 sobre el género lírico').")
-    conocimientos_previos_requeridos: Optional[str] = Field(None, description="Habilidad o conocimiento prerrequisito que necesita ser reforzado (ej: 'Diferenciar entre acciones y motivaciones de personajes').")
+    recurso_principal: str = Field(..., description="Recurso central sobre el cual girará la clase.")
+    nivel_real_estudiantes: str = Field(..., description="Descripción cualitativa del nivel del curso.")
+    
+    materiales_disponibles: Optional[str] = Field(None, description="Recursos materiales con los que cuenta el docente en la sala.")
+    duracion_clase_minutos: int = Field(90, description="Duración total de la sesión pedagógica en minutos.")
+    
+    numero_estudiantes: Optional[int] = Field(None, description="Número total de estudiantes en el aula.")
+    diversidad_aula: Optional[str] = Field(None, description="Contexto sobre la diversidad, incluyendo necesidades especiales (NEE/PIE).")
+    clima_de_aula: Optional[str] = Field(None, description="Dinámica y comportamiento general del grupo.")
+    
+    estilo_docente_preferido: Optional[str] = Field(None, description="Enfoque metodológico que el docente prefiere.")
+    tipo_evaluacion_formativa: Optional[str] = Field(None, description="Instrumento o actividad de evaluación formativa específica.")
+    
+    contexto_unidad: Optional[str] = Field(None, description="Momento de la secuencia didáctica en que se enmarca la clase.")
+    conocimientos_previos_requeridos: Optional[str] = Field(None, description="Habilidad o contenido prerrequisito que se necesite reforzar.")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "oa_codigo_oficial": "LE07 OA 03",
+                "recurso_principal": "El cuento 'El gigante egoísta' de Oscar Wilde.",
+                "nivel_real_estudiantes": "Nivel de 6° Básico en comprensión lectora.",
+                "materiales_disponibles": "Pizarra, proyector, hojas blancas y lápices de colores.",
+                "duracion_clase_minutos": 90,
+                "numero_estudiantes": 38,
+                "diversidad_aula": "Hay 2 estudiantes con TEA en el espectro 1, necesitan instrucciones claras.",
+                "clima_de_aula": "Son creativos y les gusta dibujar, pero se distraen en actividades largas.",
+                "estilo_docente_preferido": "Aprendizaje colaborativo en grupos",
+                "tipo_evaluacion_formativa": "Crear un mini-cómic de 3 viñetas",
+                "contexto_unidad": "Es la clase de cierre de la Unidad 1: 'El héroe en distintas épocas'.",
+                "conocimientos_previos_requeridos": "Diferenciar entre acciones de personajes y sus motivaciones."
+            }
+        }
 
 class PlanResponse(BaseModel):
     planificacion: str
