@@ -90,6 +90,9 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     is_active: bool
 
+class UserRoleUpdate(BaseModel):
+    role: str
+
 class User(UserBase):
     is_active: bool
     role: str

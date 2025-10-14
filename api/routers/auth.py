@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..core import security
 from ..core.config import settings
-from ..models import Token, User, UserCreate, UserUpdate
+from ..models import Token, User, UserCreate, UserUpdate, UserRoleUpdate
 from ..services.user_service import UserService
 from ..db.session import get_db
 
@@ -108,6 +108,23 @@ async def update_user_status(
     admin_user: User = Depends(get_current_admin_user),
 ):
     user_to_update = user_service.update_user_status(db, username, user_update.is_active)
+    if not user_to_update:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user_to_update
+
+@router.put("/users/{username}/role", response_model=User)
+async def update_user_role(
+    username: str,
+    user_role_update: UserRoleUpdate,
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(get_current_admin_user),
+):
+    # Validar que el rol sea uno de los permitidos si es necesario
+    allowed_roles = {"user", "admin"}
+    if user_role_update.role not in allowed_roles:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Allowed roles are: {', '.join(allowed_roles)}")
+
+    user_to_update = user_service.update_user_role(db, username, user_role_update.role)
     if not user_to_update:
         raise HTTPException(status_code=404, detail="User not found")
     return user_to_update

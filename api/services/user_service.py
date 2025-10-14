@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from ..core import security
 from ..models import UserCreate
-from ..db import user_crud
+from ..db import user_crud, models
 
 class UserService:
     def get_user(self, db: Session, username: str):
@@ -24,6 +24,9 @@ class UserService:
         if not user:
             return None
         return user_crud.update_user_status(db=db, user=user, is_active=is_active)
-
-# No mantenemos una instancia global, ya que el servicio ahora es sin estado
-# y depende de la sesión de la base de datos que se le pase.
+    
+    def update_user_role(self, db: Session, username: str, role: str):
+        user = self.get_user(db, username=username)
+        if not user:
+            return None
+        return user_crud.update_user_role(db=db, user=user, role=role)

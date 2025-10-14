@@ -29,3 +29,9 @@ def update_user_status(db: Session, user: db_models.User, is_active: bool) -> db
     db.commit()
     db.refresh(user)
     return user
+
+def update_user_role(db: Session, user: db_models.User, role: str) -> db_models.User:
+    user.role = role
+    db.commit()
+    db.refresh(user)
+    return user
