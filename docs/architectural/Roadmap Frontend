@@ -1,0 +1,179 @@
+
+
+# **Roadmap de Desarrollo Frontend con Next.js y App Router: De la API a la Aplicación**
+
+## **Introducción: Abrazando la Arquitectura Moderna de Next.js**
+
+Con una API robusta y un dataset curricular completo, la base para tu aplicación es excepcionalmente sólida. Para construir el frontend, adoptaremos la arquitectura más moderna y potente que ofrece Next.js: el **App Router**. Este enfoque, introducido en Next.js 13, reemplaza el antiguo directorio pages por un nuevo directorio app, y nos permite aprovechar al máximo los **React Server Components (RSC)** para un rendimiento y una experiencia de desarrollo superiores.
+
+Tu elección de React y Next.js es la correcta, y al usar el App Router, tu aplicación será más rápida, más escalable y más fácil de mantener. Este roadmap está diseñado específicamente para tu openapi.json y las últimas versiones de Next.js.
+
+---
+
+## **Fase 1: La Fundación \- Configuración del Proyecto con el App Router**
+
+**Objetivo:** Crear la estructura base del proyecto, establecer un sistema de diseño moderno y conectar la aplicación a la API de forma eficiente.
+
+1.1. Inicialización del Proyecto Next.js:  
+Abre tu terminal y crea un nuevo proyecto. El instalador te hará preguntas. Asegúrate de responder afirmativamente a las siguientes para usar las últimas tecnologías:
+
+Bash
+
+npx create-next-app@latest
+
+* Would you like to use TypeScript? **Yes**  
+* Would you like to use Tailwind CSS? **Yes** (Recomendado para estilizar rápidamente)  
+* Would you like to use App Router (recommended)? **Yes** (¡Este es el paso clave\!)
+
+1.2. Nueva Estructura de Carpetas:  
+El App Router cambia la forma en que organizamos los archivos. Tu nueva estructura se verá así:
+
+/mi-app-curricular/  
+├── /app/                 \# Directorio principal para todas las rutas y UI  
+│   ├── /components/      \# Componentes reutilizables (botones, modales, etc.)  
+│   ├── /lib/             \# Lógica auxiliar (llamadas a la API, etc.)  
+│   ├── layout.tsx        \# Layout raíz de la aplicación  
+│   └── page.tsx          \# La página de inicio (ruta '/')  
+├── /public/              \# Archivos estáticos  
+└──.env.local            \# Variables de entorno
+
+**Nota:** El antiguo directorio pages ya no se usa para las rutas de la UI.
+
+**1.3. Conexión con la API:**
+
+* Crea el archivo .env.local en la raíz de tu proyecto para almacenar la URL de tu API de FastAPI:  
+  NEXT\_PUBLIC\_API\_BASE\_URL=http://127.0.0.1:8000
+
+* Crea un archivo de utilidades (app/lib/api.ts) para centralizar las llamadas fetch.
+
+---
+
+## **Fase 2: El Flujo Principal \- Selección Curricular con Server Components**
+
+**Objetivo:** Construir la interfaz de selección de currículum, aprovechando los Server Components para un rendimiento óptimo.
+
+2.1. La Página de Inicio (app/page.tsx):  
+Esta página será un Server Component por defecto. Esto significa que se renderiza en el servidor y puede obtener datos directamente.
+
+* **Data Fetching Directo:** Ya no se usa getStaticProps. Ahora, la obtención de datos es mucho más simple. Tu page.tsx se verá así:  
+  TypeScript  
+  // app/page.tsx  
+  async function getNiveles() {  
+    const res \= await fetch(\`${process.env.NEXT\_PUBLIC\_API\_BASE\_URL}/curriculum/niveles\`, {  
+      cache: 'force-cache' // Le dice a Next.js que esta data es estática  
+    });  
+    if (\!res.ok) throw new Error('Failed to fetch niveles');  
+    return res.json();  
+  }
+
+  export default async function HomePage() {  
+    const niveles \= await getNiveles();  
+    //... aquí va tu JSX que usará los datos de 'niveles'  
+    return (  
+      \<main\>  
+        \<h1\>Planificador de Clases\</h1\>  
+        {/\* Pasaremos los datos a un componente cliente para la interactividad \*/}  
+        \<SelectorCurricular niveles\={niveles} /\>  
+      \</main\>  
+    );  
+  }
+
+* **Componentes Cliente para la Interactividad:** La lógica de los menús desplegables que dependen uno del otro (seleccionar un curso para poblar las asignaturas) requiere estado (useState) y, por lo tanto, debe estar en un **Client Component**.  
+  1. Crea un nuevo componente app/components/SelectorCurricular.tsx.  
+  2. Añade la directiva "use client"; al principio del archivo. Esto le dice a Next.js que este componente se ejecuta en el navegador.  
+  3. Este componente recibirá niveles como prop y manejará la lógica de los useState para los menús desplegables y la navegación.
+
+2.2. Navegación a la Página de Planificación:  
+Cuando el profesor selecciona un curso y asignatura, el componente SelectorCurricular usará el hook useRouter de Next.js para navegar a una ruta dinámica.
+
+* **Nueva Estructura de Rutas:** La ruta /planificar/1° Básico/Lenguaje y Comunicación ahora se crea con la siguiente estructura de carpetas:  
+  /app/  
+  └── /planificar/  
+      └── /\[curso\]/  
+          └── /\[asignatura\]/  
+              └── page.tsx  \<-- Este archivo renderizará la página
+
+  **Importante:** Los nombres de las carpetas \[curso\] y \[asignatura\] deben coincidir con los parámetros de tu URL.
+
+---
+
+## **Fase 3: El Corazón de la App \- El Formulario de Planificación**
+
+**Objetivo:** Crear la página donde el profesor selecciona el OA y proporciona el contexto del aula, combinando Server y Client Components.
+
+3.1. Página Dinámica de Planificación (app/planificar/\[curso\]/\[asignatura\]/page.tsx):  
+Este componente también será un Server Component. Usará los parámetros de la URL para obtener los OAs específicos.
+
+TypeScript
+
+// app/planificar/\[curso\]/\[asignatura\]/page.tsx  
+async function getOAs(curso: string, asignatura: string) {  
+  // Ojo: decodificar los parámetros de la URL  
+  const res \= await fetch(\`${process.env.NEXT\_PUBLIC\_API\_BASE\_URL}/curriculum/oas?curso=${encodeURIComponent(curso)}\&asignatura=${encodeURIComponent(asignatura)}\`);  
+  if (\!res.ok) return; // Manejar el caso de error  
+  return res.json();  
+}
+
+export default async function PlanificarPage({ params }: { params: { curso: string; asignatura: string } }) {  
+  const ejesConOAs \= await getOAs(decodeURIComponent(params.curso), decodeURIComponent(params.asignatura));
+
+  return (  
+    \<div\>  
+      \<h2\>Planificar para {decodeURIComponent(params.curso)} \- {decodeURIComponent(params.asignatura)}\</h2\>  
+      {/\* El formulario y la lista de OAs serán un Client Component \*/}  
+      \<FormularioPlanificacion ejes\={ejesConOAs} /\>  
+    \</div\>  
+  );  
+}
+
+3.2. El Componente Interactivo (app/components/FormularioPlanificacion.tsx):  
+Este será un Client Component (con "use client";) que contendrá toda la lógica interactiva.
+
+* Recibirá los ejesConOAs como prop.  
+* Usará useState para manejar el OA seleccionado y los datos del formulario.  
+* Renderizará la lista de OAs (agrupados por eje) y el formulario con todos los campos de contexto (recurso\_principal, diversidad\_aula, etc.).  
+* Se recomienda usar **React Hook Form** para una gestión eficiente del formulario.
+
+---
+
+## **Fase 4: La Magia en Acción \- Streaming de la Respuesta de la IA**
+
+**Objetivo:** Enviar la solicitud a la API y mostrar la respuesta de la IA en tiempo real dentro de un Client Component.
+
+4.1. Lógica de Streaming en el Cliente:  
+Esta lógica vivirá dentro de tu componente FormularioPlanificacion.tsx.
+
+* **Uso de EventSource:** Como tu API devuelve un text/event-stream, la implementación sigue siendo la misma: usar la API nativa del navegador EventSource. Esto es perfecto para el App Router, ya que es una operación del lado del cliente.  
+* **Manejo del Estado de la Respuesta:**  
+  1. Al enviar el formulario, se crea una nueva instancia de EventSource que apunta a tu endpoint /planning/generate-plan.  
+  2. Se usan estados de React (useState) para almacenar los mensajes de "pensamiento" y para ir acumulando el contenido de la planificación.  
+     TypeScript  
+     const \[pensamiento, setPensamiento\] \= useState('');  
+     const \[planificacion, setPlanificacion\] \= useState('');
+
+  3. El listener onmessage del EventSource actualizará estos estados en tiempo real.
+
+**4.2. Visualización de la Respuesta:**
+
+* Crea un componente VisorPlanificacion que reciba el estado planificacion.  
+* Usa la librería **react-markdown** para renderizar el contenido en Markdown de forma atractiva. Esto mostrará los títulos, listas y negritas a medida que llegan desde la API.
+
+---
+
+## **Fase 5: El Toque Final \- Funcionalidades Avanzadas y Despliegue**
+
+**Objetivo:** Añadir persistencia de datos, autenticación y desplegar la aplicación.
+
+**5.1. Autenticación de Usuarios:**
+
+* **Recomendación:** **NextAuth.js** (ahora Auth.js) o **Clerk**. Ambas están completamente integradas con el App Router y son las soluciones líderes para añadir inicio de sesión de forma segura y sencilla.
+
+**5.2. Base de Datos para Guardar Planificaciones:**
+
+* **Recomendación:** **Supabase** o **Firebase (Firestore)**. Son excelentes para empezar, ya que te ofrecen una base de datos y una API para interactuar con ella sin necesidad de gestionar un backend adicional.
+
+**5.3. Despliegue del Frontend:**
+
+* **Recomendación:** **Vercel**. Es la plataforma creada por los desarrolladores de Next.js. Su integración es perfecta: simplemente conecta tu repositorio de GitHub y Vercel desplegará tu aplicación automáticamente en cada push, optimizándola para el mejor rendimiento posible.
+
+Este roadmap actualizado te alinea con las mejores y más modernas prácticas del desarrollo web. Al adoptar el App Router, no solo estarás usando la última tecnología, sino que estarás construyendo una aplicación más rápida y con una mejor experiencia tanto para ti como desarrollador como para los profesores que la usarán.
