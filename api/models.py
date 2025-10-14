@@ -32,3 +32,11 @@ class PlanRequest(BaseModel):
 
 class PlanResponse(BaseModel):
     planificacion: str
+
+class StreamThought(BaseModel):
+    type: str = "thought"
+    content: str
+
+class StreamAnswer(BaseModel):
+    type: str = "answer"
+    content: str

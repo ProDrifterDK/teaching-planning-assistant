@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from google.genai import types
 import google.genai as genai
 import logging
-from ..models import PlanRequest, PlanResponse
+import json
+from ..models import PlanRequest, StreamThought, StreamAnswer
 from ..core.config import settings
 from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
@@ -12,21 +14,82 @@ router = APIRouter(
     tags=["Co-piloto de Planificación"]
 )
 
-@router.post("/generate-plan", response_model=PlanResponse)
+async def stream_generator(prompt: str, oa_codigo: str):
+    """
+    Generador asíncrono que produce fragmentos de la respuesta de Gemini (pensamientos y respuesta final).
+    Registra el costo total al finalizar el stream.
+    """
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    
+    full_config = types.GenerateContentConfig(
+        max_output_tokens=65536,
+        thinking_config=types.ThinkingConfig(
+            thinking_budget=-1,
+            include_thoughts=True
+        )
+    )
+    final_usage_metadata = None
+
+    try:
+        stream = await client.aio.models.generate_content_stream(
+            model='gemini-2.5-pro',
+            contents=prompt,
+            config=full_config
+        )
+
+        async for chunk in stream:
+            if chunk.usage_metadata:
+                final_usage_metadata = chunk.usage_metadata
+
+            if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
+                for part in chunk.candidates[0].content.parts:
+                    if not part.text:
+                        continue
+                    if hasattr(part, 'thought') and part.thought:
+                        thought_chunk = StreamThought(content=part.text)
+                        yield f"data: {thought_chunk.json()}\n\n"
+                    else:
+                        answer_chunk = StreamAnswer(content=part.text)
+                        yield f"data: {answer_chunk.json()}\n\n"
+
+    except Exception as e:
+        logging.error(f"Error durante el stream para OA '{oa_codigo}': {e}")
+        error_response = {"type": "error", "content": str(e)}
+        yield f"data: {json.dumps(error_response)}\n\n"
+    finally:
+        if final_usage_metadata:
+            input_tokens = final_usage_metadata.prompt_token_count or 0
+            output_tokens = final_usage_metadata.candidates_token_count or 0
+            thought_tokens = final_usage_metadata.thoughts_token_count or 0
+            cost = calculate_cost(input_tokens, output_tokens + thought_tokens)
+            logging.info(f"Stream finalizado para OA '{oa_codigo}'. Costo: ${cost:.6f}, Tokens(I/O/T): {input_tokens}/{output_tokens}/{thought_tokens}")
+
+@router.post(
+    "/generate-plan",
+    responses={
+        200: {
+            "content": {"text/event-stream": {}},
+            "description": """Respuesta en formato Server-Sent Events (SSE). Cada evento es una línea `data:` seguida de un objeto JSON.
+            
+Ejemplo de evento de 'pensamiento':
+`data: {"type": "thought", "content": "Estoy analizando el OA..."}`
+
+Ejemplo de evento de 'respuesta':
+`data: {"type": "answer", "content": "Aquí está la primera parte..."}`
+""",
+        }
+    },
+)
 async def generate_plan(
     request: PlanRequest,
     service: CurriculumService = Depends(get_curriculum_service)
 ):
-    """
-    Genera una planificación de clase detallada para un OA específico.
-    """
     if not settings.GEMINI_API_KEY:
-        raise HTTPException(status_code=500, detail="La API de Gemini no está configurada en el servidor.")
+        raise HTTPException(status_code=500, detail="La API de Gemini no está configurada.")
 
     oa_details = service.find_oa_details(request.oa_codigo_oficial)
-    
     if not oa_details:
-        raise HTTPException(status_code=404, detail=f"OA con código '{request.oa_codigo_oficial}' no encontrado.")
+        raise HTTPException(status_code=404, detail=f"OA '{request.oa_codigo_oficial}' no encontrado.")
     
     oa_completo = oa_details["oa_completo"]
     contexto_asignatura = oa_details["contexto_asignatura"]
@@ -54,33 +117,5 @@ async def generate_plan(
     Instrucciones de Salida:
     Genera una planificación de clase en formato Markdown. La planificación debe ser completa y estar estructurada en tres fases claras: Inicio (15-20 min), Desarrollo (50-60 min) y Cierre (10-15 min). Debe incluir actividades concretas, distribución del tiempo, y al menos una sugerencia de evaluación formativa. Sé creativo y práctico.
     """
-    
-    try:
-        client = genai.Client(api_key=settings.GEMINI_API_KEY)
-        
-        full_config = types.GenerateContentConfig(
-            max_output_tokens=8192,
-            thinking_config=types.ThinkingConfig(
-                thinking_budget=-1,
-                include_thoughts=True
-            )
-        )
-        
-        response = await client.aio.models.generate_content(
-            model='gemini-2.5-pro',
-            contents=prompt,
-            config=full_config
-        )
-        
-        if response.usage_metadata:
-            input_tokens = response.usage_metadata.prompt_token_count or 0
-            output_tokens = response.usage_metadata.candidates_token_count or 0
-            thought_tokens = response.usage_metadata.thoughts_token_count or 0
-            
-            cost = calculate_cost(input_tokens, output_tokens + thought_tokens)
-            logging.info(f"Plan generado para OA '{request.oa_codigo_oficial}'. Costo: ${cost:.6f}, Tokens(I/O/T): {input_tokens}/{output_tokens}/{thought_tokens}")
-        
-        return {"planificacion": response.text}
-    except Exception as e:
-        logging.error(f"Error al generar la planificación para OA '{request.oa_codigo_oficial}': {e}")
-        raise HTTPException(status_code=500, detail=f"Error al generar la planificación desde la API de Gemini: {str(e)}")
+
+    return StreamingResponse(stream_generator(prompt, request.oa_codigo_oficial), media_type="text/event-stream")
