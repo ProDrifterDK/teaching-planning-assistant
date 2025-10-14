@@ -1,0 +1,119 @@
+
+
+# **Enriquecimiento del Contexto para la Generación de Planificaciones de Clase con IA: Un Enfoque Pedagógico**
+
+## **Sección 1: Introducción y Justificación**
+
+El desarrollo de una herramienta de inteligencia artificial para asistir a los docentes en la planificación de clases representa un avance significativo. La base de esta herramienta, un conjunto de datos estructurados que mapea el currículum nacional, es fundamental. Sin embargo, para que las planificaciones generadas por la IA trasciendan de ser teóricamente correctas a ser prácticamente aplicables y verdaderamente útiles, es imperativo que la IA reciba un contexto que refleje la realidad multifacética del aula.
+
+Un profesor no opera en un vacío curricular; interactúa con un ecosistema dinámico compuesto por estudiantes con diversas necesidades, recursos limitados y un plan de estudios que se desarrolla a lo largo del tiempo. De hecho, se considera necesario que los docentes y equipos directivos contextualicen la propuesta ministerial para considerar las necesidades y características de sus establecimientos y estudiantes.1 Este documento propone una serie de parámetros adicionales, diseñados para ser incorporados en la solicitud a la API, que enriquecerán el contexto proporcionado a la IA. El objetivo es capacitar al modelo para que genere planificaciones que no solo sean curricularmente pertinentes, sino también pedagógicamente realistas, inclusivas y personalizadas.
+
+## **Sección 2: Parámetros de Contexto Adicionales**
+
+Las siguientes sugerencias se agrupan en tres categorías pedagógicas clave que, en conjunto, ofrecen una visión holística del entorno de aprendizaje para el cual se está planificando.
+
+### **2.1 Contexto del Grupo Curso (El "Quiénes")**
+
+Esta categoría se enfoca en las características humanas y sociales del grupo de estudiantes. Proporcionar esta información permite a la IA adaptar las estrategias de agrupación, el nivel de desafío y los ejemplos para maximizar la participación y el aprendizaje.
+
+| Parámetro Sugerido | Tipo de Dato | Justificación Pedagógica | Ejemplo de Implementación en el Prompt |
+| :---- | :---- | :---- | :---- |
+| numero\_estudiantes | integer | Permite a la IA sugerir estrategias de agrupación y gestión del aula realistas. Una actividad para 15 estudiantes es logísticamente diferente a una para 42\. | \- Número de Estudiantes: 38 |
+| diversidad\_aula | string (texto libre) | Este es un parámetro de alto impacto para la inclusión. Permite al docente informar sobre estudiantes con necesidades educativas especiales (NEE), como los del Programa de Integración Escolar (PIE), o sobre intereses específicos del grupo. La IA puede entonces sugerir adaptaciones, apoyos visuales o ejemplos temáticos para aumentar la relevancia y accesibilidad.2 | \- Diversidad en el Aula: Hay 2 estudiantes con TEA en el espectro 1, se integran bien pero necesitan instrucciones muy claras y segmentadas. |
+| clima\_de\_aula | string (opciones o texto) | Informa a la IA sobre la personalidad y dinámica del curso. Un grupo conversador puede beneficiarse de debates, mientras que uno más introvertido puede preferir trabajos de reflexión escrita. Esto permite alinear las actividades con el temperamento del grupo, mejorando el manejo de la clase. | \- Clima y Dinámica del Grupo: Son muy creativos y les gusta dibujar, pero se distraen en actividades largas. |
+
+### **2.2 Contexto Pedagógico y de Evaluación (El "Cómo")**
+
+Esta categoría le otorga al profesor control sobre el enfoque metodológico y la manera en que se medirá el aprendizaje, asegurando que la planificación generada se alinee con su estilo profesional.
+
+| Parámetro Sugerido | Tipo de Dato | Justificación Pedagógica | Ejemplo de Implementación en el Prompt |
+| :---- | :---- | :---- | :---- |
+| estilo\_docente\_preferido | string (opciones) | Aumenta la probabilidad de que el profesor adopte la planificación sugerida. La IA puede adaptar su propuesta a metodologías específicas como el Aprendizaje Basado en Proyectos (ABP), la clase invertida o un enfoque más tradicional y expositivo. | \- Estilo Docente Preferido: Aprendizaje colaborativo en grupos |
+| tipo\_evaluacion\_formativa | string (opciones) | Transforma una sugerencia genérica en una herramienta concreta. Si el profesor selecciona "Ticket de Salida", la IA puede generar las 2 o 3 preguntas específicas para ese ticket, ahorrándole tiempo y alineando la evaluación con el OA de la clase. | \- Tipo de Evaluación Formativa Deseada: Crear un mini-cómic de 3 viñetas |
+
+### **2.3 Contexto de la Secuencia de Aprendizaje (El "Cuándo")**
+
+Esta categoría sitúa la clase dentro de la narrativa más amplia de una unidad de aprendizaje, permitiendo que la IA diseñe actividades con un propósito secuencial claro.
+
+| Parámetro Sugerido | Tipo de Dato | Justificación Pedagógica | Ejemplo de Implementación en el Prompt |
+| :---- | :---- | :---- | :---- |
+| contexto\_unidad | string (texto libre) | Permite a la IA entender si la clase es de introducción, desarrollo o cierre de una unidad. Si es una clase inicial, puede enfocarse en activar conocimientos previos. Si es de cierre, puede proponer actividades de síntesis y aplicación. El currículum oficial a menudo organiza los OAs en unidades temáticas.3 | \- Momento de la Unidad: Es la clase de cierre de la Unidad 1: 'El héroe en distintas épocas'. |
+| conocimientos\_previos\_requeridos | string (texto libre) | Este es un parámetro crucial para la nivelación. Es más específico que nivel\_real\_estudiantes, ya que permite al docente señalar una debilidad concreta. La IA puede entonces diseñar una actividad de inicio explícitamente dirigida a reforzar esa habilidad prerrequisito antes de abordar el contenido principal, respetando la progresión y secuencia de los aprendizajes. | \- Conocimientos Previos a Reforzar: Aún les cuesta diferenciar entre las acciones de los personajes y sus motivaciones. |
+
+## **Sección 3: Estructura de Datos y Prompt Refinados**
+
+### **3.1 Petición a la API Actualizada**
+
+La integración de estos parámetros enriquece significativamente la petición POST al endpoint /generate-plan. Un ejemplo de cuerpo de la petición sería:
+
+JSON
+
+{  
+  "oa\_codigo\_oficial": "LE07 OA 03",  
+  "recurso\_principal": "El cuento 'El gigante egoísta' de Oscar Wilde.",  
+  "nivel\_real\_estudiantes": "Nivel de 6° Básico en comprensión lectora.",  
+  "materiales\_disponibles": "Pizarra, proyector, hojas blancas y lápices de colores.",  
+  "duracion\_clase\_minutos": 90,  
+  "numero\_estudiantes": 38,  
+  "diversidad\_aula": "Hay 2 estudiantes con TEA en el espectro 1, se integran bien pero necesitan instrucciones muy claras y segmentadas.",  
+  "clima\_de\_aula": "Son muy creativos y les gusta dibujar, pero se distraen en actividades largas.",  
+  "estilo\_docente\_preferido": "Aprendizaje colaborativo en grupos",  
+  "tipo\_evaluacion\_formativa": "Crear un mini-cómic de 3 viñetas",  
+  "contexto\_unidad": "Es la clase de cierre de la Unidad 1: 'El héroe en distintas épocas'.",  
+  "conocimientos\_previos\_requeridos": "Aún les cuesta diferenciar entre las acciones de los personajes y sus motivaciones."  
+}
+
+### **3.2 Prompt para la IA Refinado**
+
+Este conjunto de datos permite la construcción de un prompt de alta fidelidad, que guía a la IA para generar una respuesta que no solo es correcta, sino también profundamente contextualizada y útil.
+
+Plaintext
+
+Rol: Actúa como un experto en diseño instruccional y un co-piloto para un profesor chileno. Tu objetivo es crear una planificación de clase realista, útil, inclusiva y lista para ser usada.
+
+\---  
+Contexto Curricular:  
+\- Asignatura: Lengua y Literatura  
+\- Curso: 7° Básico  
+\- Eje Curricular: Lectura \- Comprensión  
+\- Objetivo de Aprendizaje (OA) a tratar:  
+  \- Código: LE07 OA 03  
+  \- Descripción: Analizar las narraciones leídas para enriquecer su comprensión, considerando, cuando sea pertinente:  
+  \- Componentes Clave: el o los conflictos de la historia, el papel que juega cada personaje en el conflicto y cómo sus acciones afectan a otros personajes, el efecto de ciertas acciones en el desarrollo de la historia, cuándo habla el narrador y cuándo hablan los personajes, la disposición temporal de los hechos, elementos en común con otros textos leídos en el año  
+  \- Habilidades de Bloom: Analizar, Comprender  
+\- Actitudes a Fomentar:...
+
+\---  
+Contexto del Aula:  
+\- Número de Estudiantes: 38  
+\- Duración de la Clase: 90 minutos.  
+\- Clima y Dinámica del Grupo: Son muy creativos y les gusta dibujar, pero se distraen en actividades largas.  
+\- Diversidad en el Aula: Hay 2 estudiantes con TEA en el espectro 1, se integran bien pero necesitan instrucciones muy claras y segmentadas.  
+\- Materiales Disponibles: Pizarra, proyector, hojas blancas y lápices de colores. Adapta las actividades estrictamente a estos materiales.
+
+\---  
+Contexto Pedagógico:  
+\- Recurso Principal: El cuento 'El gigante egoísta' de Oscar Wilde.  
+\- Nivel Real de los Estudiantes: Nivel de 6° Básico en comprensión lectora.  
+\- Conocimientos Previos a Reforzar: Aún les cuesta diferenciar entre las acciones de los personajes y sus motivaciones.  
+\- Estilo Docente Preferido: Aprendizaje colaborativo en grupos.  
+\- Tipo de Evaluación Formativa Deseada: Crear un mini-cómic de 3 viñetas.  
+\- Momento de la Unidad: Es la clase de cierre de la Unidad 1: 'El héroe en distintas épocas'.
+
+\---  
+Instrucciones de Salida:  
+Genera una planificación de clase en formato Markdown. La planificación debe ser completa, realista, inclusiva y estar estructurada en tres fases claras: Inicio, Desarrollo y Cierre.  
+\- \*\*Inicio (aprox. 15 min):\*\* Diseña una actividad corta para reforzar la diferencia entre acciones y motivaciones de personajes, conectando con el tema de la unidad que termina.  
+\- \*\*Desarrollo (aprox. 55 min):\*\* Propón actividades colaborativas en grupos (considerando el tamaño del curso) que usen el cuento 'El gigante egoísta'. Las actividades deben ser dinámicas para mantener la atención y deben guiar a los estudiantes a analizar los componentes del OA. Ofrece una adaptación o instrucción específica para los estudiantes con TEA (instrucciones claras y segmentadas).  
+\- \*\*Cierre (aprox. 20 min):\*\* Detalla la actividad de evaluación formativa solicitada (mini-cómic), explicando cómo los estudiantes pueden usarlo para demostrar su análisis del conflicto y los personajes.  
+Sé creativo, práctico y muy consciente de las limitaciones de materiales.
+
+## **Sección 4: Conclusión**
+
+La implementación de estos parámetros adicionales representa la transición de un sistema de consulta de datos a un verdadero asistente pedagógico inteligente. Al capturar no solo el "qué" del currículum, sino también el "quiénes", "cómo" y "cuándo" de la sala de clases, la aplicación puede ofrecer un valor sin precedentes a los docentes, proporcionando planificaciones que son inmediatamente relevantes, aplicables y sensibles a la compleja realidad de su labor diaria. Se recomienda la integración de estos campos en la interfaz de usuario y en la lógica de la API para maximizar la eficacia y utilidad de la herramienta.
+
+#### **Works cited**
+
+1. Conocimiento del currículum nacional, accessed October 11, 2025, [https://sitios.mineduc.cl/Tres%20Experiencias%20Educativas/files/assets/common/downloads/page0020.pdf](https://sitios.mineduc.cl/Tres%20Experiencias%20Educativas/files/assets/common/downloads/page0020.pdf)  
+2. Progresiones de aprendizaje en espiral. Orientaciones para su ..., accessed October 11, 2025, [https://bibliotecadigital.mineduc.cl/handle/20.500.12365/4444](https://bibliotecadigital.mineduc.cl/handle/20.500.12365/4444)  
+3. LE07 OA 15 \- Curriculum Nacional. MINEDUC. Chile., accessed October 11, 2025, [https://www.curriculumnacional.cl/614/w3-article-70394.html](https://www.curriculumnacional.cl/614/w3-article-70394.html)
