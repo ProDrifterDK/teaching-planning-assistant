@@ -21974,67 +21974,6 @@
     ]
   },
   {
-    "asignatura": "Filosofía 4° medio",
-    "curso": "4° Medio FG",
-    "actitudes": [],
-    "ejes": [
-      {
-        "nombre_eje": "Formación General",
-        "oas": [
-          {
-            "oa_codigo_oficial": "Objetivo de aprendizaje FG-FILO-4M-OAC-01",
-            "descripcion_oa": "Explicar los alcances, límites y fines del quehacer filosófico, considerando sus aportes al conocimiento y la acción, así como su relación con otras disciplinas y formas del saber.",
-            "desglose_componentes": [],
-            "habilidades": [
-              "Comprender"
-            ]
-          },
-          {
-            "oa_codigo_oficial": "Objetivo de aprendizaje FG-FILO-4M-OAC-02",
-            "descripcion_oa": "Formular preguntas filosóficas referidas a la praxis que sean significativas para su vida, considerando teorías éticas fundamentales y conceptos como la justicia, la libertad y la igualdad.",
-            "desglose_componentes": [],
-            "habilidades": [
-              "Analizar",
-              "Comprender",
-              "Crear",
-              "Recordar"
-            ]
-          },
-          {
-            "oa_codigo_oficial": "Objetivo de aprendizaje FG-FILO-4M-OAC-03",
-            "descripcion_oa": "Dialogar sobre problemas contemporáneos(2) de la ética y la política, confrontando diversas perspectivas filosóficas y fundamentando visiones personales. (2) Se sugiere problemas relacionados con bioética, género, diversidad sexual, redes sociales y privacidad, inteligencia artificial, entre otros que se estime pertinentes.",
-            "desglose_componentes": [],
-            "habilidades": [
-              "Analizar",
-              "Comprender",
-              "Evaluar"
-            ]
-          },
-          {
-            "oa_codigo_oficial": "Objetivo de aprendizaje FG-FILO-4M-OAC-04",
-            "descripcion_oa": "Evaluar diferentes tipos de argumentos presentes en textos filosóficos y fundamentar su validez o carácter falaz, considerando referentes teóricos, empíricos y del sentido común para apoyar o refutar una tesis.",
-            "desglose_componentes": [],
-            "habilidades": [
-              "Analizar",
-              "Evaluar"
-            ]
-          },
-          {
-            "oa_codigo_oficial": "Objetivo de aprendizaje FG-FILO-4M-OAC-05",
-            "descripcion_oa": "Evaluar el impacto de ideas filosóficas relacionadas con la ontología, la epistemología y la ética en cuestiones actuales de la cultura, el mundo laboral, la tecnología, la política, las artes, entre otras posibilidades, utilizando diferentes formas de expresión y representación de ideas.",
-            "desglose_componentes": [],
-            "habilidades": [
-              "Analizar",
-              "Comprender",
-              "Crear",
-              "Evaluar"
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
     "asignatura": "Chile y la región latinoamericana",
     "curso": "3° Medio FG",
     "actitudes": [],
