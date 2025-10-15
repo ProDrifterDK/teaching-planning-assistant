@@ -43,6 +43,7 @@ class PlanRequest(BaseModel):
     
     contexto_unidad: Optional[str] = Field(None, description="Momento de la secuencia didáctica en que se enmarca la clase.")
     conocimientos_previos_requeridos: Optional[str] = Field(None, description="Habilidad o contenido prerrequisito que se necesite reforzar.")
+    solicitud_especial: Optional[str] = Field(None, description="Instrucciones o notas adicionales del profesor para guiar la generación.")
 
     class Config:
         json_schema_extra = {

@@ -158,6 +158,8 @@ async def generate_plan(
         prompt_parts.append(f"- Tipo de Evaluación Formativa Deseada: {request.tipo_evaluacion_formativa}")
     if request.contexto_unidad:
         prompt_parts.append(f"- Momento de la Unidad: {request.contexto_unidad}")
+    if request.solicitud_especial:
+        prompt_parts.append(f"- Solicitud Especial del Docente: {request.solicitud_especial}")
         
     prompt_parts.extend([
         "---",
