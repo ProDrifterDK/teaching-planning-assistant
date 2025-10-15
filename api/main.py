@@ -1,6 +1,7 @@
 import logging
 import sys
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from .routers import curriculum, planning, auth
@@ -54,6 +55,19 @@ app = FastAPI(
     description="API para consultar y utilizar los datos del currículum nacional chileno, enriquecidos con IA.",
     version="2.1.0",
     lifespan=lifespan
+)
+
+# --- Configuración de CORS ---
+origins = [
+    "http://localhost:3000", # Origen del frontend de Next.js
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Permite todos los métodos (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"], # Permite todas las cabeceras (incluyendo Authorization)
 )
 
 app.include_router(curriculum.router)
