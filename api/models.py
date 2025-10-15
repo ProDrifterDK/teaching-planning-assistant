@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
+from datetime import datetime
 
 class Attitude(BaseModel):
     codigo: str
@@ -122,3 +123,12 @@ class AdminDashboardStats(BaseModel):
 
 class UserInDB(User):
     hashed_password: str
+
+class PlanningLogResponse(BaseModel):
+    id: int
+    oa_codigo: str
+    cost: float
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True

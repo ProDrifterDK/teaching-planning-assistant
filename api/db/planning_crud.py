@@ -22,3 +22,15 @@ def create_planning_log(
     db.commit()
     db.refresh(db_log)
     return db_log
+
+def get_planning_logs_by_user_id(db: Session, user_id: int):
+    """
+    Obtiene todos los registros de planificación para un usuario específico,
+    ordenados del más reciente al más antiguo.
+    """
+    return (
+        db.query(db_models.PlanningLog)
+        .filter(db_models.PlanningLog.user_id == user_id)
+        .order_by(db_models.PlanningLog.timestamp.desc())
+        .all()
+    )

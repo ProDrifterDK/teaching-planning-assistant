@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from google.genai import types
@@ -7,7 +7,7 @@ import logging
 import json
 from sqlalchemy.orm import Session
 
-from ..models import PlanRequest, StreamThought, StreamAnswer, User
+from ..models import PlanRequest, StreamThought, StreamAnswer, User, PlanningLogResponse
 from ..core.config import settings
 from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
@@ -183,3 +183,19 @@ async def generate_plan(
         ),
         media_type="text/event-stream"
     )
+
+@router.get(
+    "/history/me",
+    response_model=List[PlanningLogResponse],
+    summary="Obtener historial de planificaciones del usuario",
+    description="Devuelve una lista de todas las planificaciones generadas por el usuario actualmente autenticado, ordenadas de la más reciente a la más antigua."
+)
+def get_user_planning_history(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
+    """
+    Endpoint para que un usuario pueda consultar su propio historial de planificaciones.
+    """
+    history = planning_crud.get_planning_logs_by_user_id(db, user_id=current_user.id)
+    return history
