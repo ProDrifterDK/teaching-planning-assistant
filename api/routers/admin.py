@@ -35,6 +35,8 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
                 username=item.username,
                 total_cost=cost,
                 total_plannings=plannings,
+                is_active=item.is_active,
+                role=item.role,
             )
         )
         total_system_cost += cost

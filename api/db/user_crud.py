@@ -49,10 +49,12 @@ def get_users_with_cost_summary(db: Session):
     return (
         db.query(
             db_models.User.username,
+            db_models.User.is_active,
+            db_models.User.role,
             func.sum(db_models.PlanningLog.cost).label("total_cost"),
             func.count(db_models.PlanningLog.id).label("total_plannings"),
         )
         .outerjoin(db_models.PlanningLog, db_models.User.id == db_models.PlanningLog.user_id)
-        .group_by(db_models.User.username)
+        .group_by(db_models.User.username, db_models.User.is_active, db_models.User.role)
         .all()
     )

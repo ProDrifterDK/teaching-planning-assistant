@@ -108,6 +108,8 @@ class UserCostSummary(BaseModel):
     username: str
     total_cost: float
     total_plannings: int
+    is_active: bool
+    role: str
 
     class Config:
         from_attributes = True
