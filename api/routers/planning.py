@@ -5,21 +5,25 @@ from google.genai import types
 import google.genai as genai
 import logging
 import json
+from sqlalchemy.orm import Session
+
 from ..models import PlanRequest, StreamThought, StreamAnswer, User
 from ..core.config import settings
 from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
 from .auth import get_current_active_user
+from ..db.session import get_db
+from ..db import planning_crud
 
 router = APIRouter(
     prefix="/planning",
     tags=["Co-piloto de Planificación"]
 )
 
-async def stream_generator(prompt: str, oa_codigo: str):
+async def stream_generator(prompt: str, oa_codigo: str, user_id: int, db: Session):
     """
-    Generador asíncrono que produce fragmentos de la respuesta de Gemini (pensamientos y respuesta final).
-    Registra el costo total al finalizar el stream.
+    Generador asíncrono que produce fragmentos de la respuesta de Gemini.
+    Al finalizar, calcula el costo y lo registra en la base de datos.
     """
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
     
@@ -64,7 +68,21 @@ async def stream_generator(prompt: str, oa_codigo: str):
             output_tokens = final_usage_metadata.candidates_token_count or 0
             thought_tokens = final_usage_metadata.thoughts_token_count or 0
             cost = calculate_cost(input_tokens, output_tokens + thought_tokens)
-            logging.info(f"Stream finalizado para OA '{oa_codigo}'. Costo: ${cost:.6f}, Tokens(I/O/T): {input_tokens}/{output_tokens}/{thought_tokens}")
+            
+            # Guardar el log en la base de datos
+            try:
+                planning_crud.create_planning_log(
+                    db=db,
+                    user_id=user_id,
+                    oa_codigo=oa_codigo,
+                    cost=cost,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    thought_tokens=thought_tokens,
+                )
+                logging.info(f"Costo de ${cost:.6f} registrado para el usuario ID {user_id} y OA '{oa_codigo}'.")
+            except Exception as e:
+                logging.error(f"Error al registrar el costo para el usuario ID {user_id}: {e}")
 
 @router.post(
     "/generate-plan",
@@ -85,7 +103,8 @@ Ejemplo de evento de 'respuesta':
 async def generate_plan(
     request: PlanRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
-    service: CurriculumService = Depends(get_curriculum_service)
+    service: CurriculumService = Depends(get_curriculum_service),
+    db: Session = Depends(get_db)
 ):
     if not settings.GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="La API de Gemini no está configurada.")
@@ -153,4 +172,12 @@ async def generate_plan(
 
     prompt = "\n".join(prompt_parts)
 
-    return StreamingResponse(stream_generator(prompt, request.oa_codigo_oficial), media_type="text/event-stream")
+    return StreamingResponse(
+        stream_generator(
+            prompt=prompt,
+            oa_codigo=request.oa_codigo_oficial,
+            user_id=current_user.id,
+            db=db
+        ),
+        media_type="text/event-stream"
+    )

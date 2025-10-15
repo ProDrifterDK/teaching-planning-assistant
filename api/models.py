@@ -94,6 +94,7 @@ class UserRoleUpdate(BaseModel):
     role: str
 
 class User(UserBase):
+    id: int
     is_active: bool
     role: str
 
