@@ -4,17 +4,25 @@ from typing import List, Dict, Any
 
 class CurriculumService:
     def __init__(self, data_file: Path):
-        self._data: List[Dict[str, Any]] = []
-        if data_file.is_file():
-            with open(data_file, "r", encoding="utf-8") as f:
-                self._data = json.load(f)
+        self._data_file = data_file
+        self._data: List[Dict[str, Any]] = self._load_data()
+
+    def _load_data(self) -> List[Dict[str, Any]]:
+        """Carga los datos desde el archivo JSON."""
+        if self._data_file.is_file():
+            with open(self._data_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return []
 
     def get_all_data(self) -> List[Dict[str, Any]]:
-        return self._data
+        # Para desarrollo: recargar en cada solicitud para ver cambios al instante.
+        # En producción, esto debería ser cacheado.
+        return self._load_data()
 
     def get_niveles(self) -> Dict[str, List[str]]:
         niveles: Dict[str, List[str]] = {}
-        for item in self._data:
+        data = self.get_all_data()
+        for item in data:
             curso = item.get('curso')
             asignatura = item.get('asignatura')
             if curso and asignatura:
@@ -25,14 +33,16 @@ class CurriculumService:
         return niveles
 
     def get_oas_by_curso_asignatura(self, curso: str, asignatura: str) -> List[Dict[str, Any]]:
-        for item in self._data:
+        data = self.get_all_data()
+        for item in data:
             if item.get('curso') == curso and item.get('asignatura') == asignatura:
                 return item.get('ejes', [])
         return []
 
     def find_oa_details(self, oa_code: str) -> Dict[str, Any] | None:
         """Encuentra el OA completo y su contexto de asignatura/curso."""
-        for item in self._data:
+        data = self.get_all_data()
+        for item in data:
             for eje in item.get('ejes', []):
                 for oa in eje.get('oas', []):
                     # Limpiamos el código para que coincida
@@ -47,8 +57,9 @@ class CurriculumService:
 
 
 # --- Instancia Singleton ---
-# Esto asegura que los datos se carguen una sola vez en memoria.
-DATA_FILE = Path(__file__).parent.parent / "data/structured_data_final.json"
+# Apuntamos al archivo correcto que el usuario está modificando.
+# Usamos una ruta relativa desde la raíz del proyecto.
+DATA_FILE = Path("data/processed/structured_data_enriched.json")
 curriculum_service = CurriculumService(DATA_FILE)
 
 # --- Funciones de Dependencia para FastAPI ---
