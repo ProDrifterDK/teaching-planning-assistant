@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import List
@@ -42,9 +43,13 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
         total_system_cost += cost
         total_system_plannings += plannings
     
-    return AdminDashboardStats(
+    response_data = AdminDashboardStats(
         total_users=total_users,
         total_system_cost=total_system_cost,
         total_system_plannings=total_system_plannings,
         users_summary=users_summary,
     )
+    
+    logging.info(f"Admin dashboard data sent: {response_data.json()}")
+    
+    return response_data
