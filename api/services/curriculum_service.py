@@ -45,9 +45,10 @@ class CurriculumService:
         for item in data:
             for eje in item.get('ejes', []):
                 for oa in eje.get('oas', []):
-                    # Limpiamos el código para que coincida
-                    codigo_limpio = oa.get('oa_codigo_oficial', '').replace("Objetivo de aprendizaje ", "")
-                    if codigo_limpio == oa_code:
+                    # Comparamos directamente el código oficial que viene del JSON
+                    # con el que se envía desde el frontend.
+                    codigo_oficial_en_json = oa.get('oa_codigo_oficial', '')
+                    if codigo_oficial_en_json == oa_code:
                         return {
                             "oa_completo": oa,
                             "contexto_asignatura": item,
