@@ -21,7 +21,7 @@ user_service = UserService()
 
 def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db)
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -29,7 +29,9 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     username = security.verify_token(token, credentials_exception)
-    user = user_service.get_user(db=db, username=username)
+    if username is None:
+        raise credentials_exception
+    user = user_service.get_user(db, username=username)
     if user is None:
         raise credentials_exception
     return user
@@ -98,6 +100,9 @@ async def create_user(
 async def read_users_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
+    """
+    Devuelve los datos del usuario actualmente autenticado, incluyendo su rol.
+    """
     return current_user
 
 @router.put("/users/{username}/status", response_model=User)
