@@ -119,7 +119,7 @@ async def generate_plan(
     
     # --- Construcción Dinámica del Prompt ---
     prompt_parts = [
-        "Rol: Actúa como un experto en diseño instruccional y un co-piloto para un profesor chileno. Tu objetivo es crear una planificación de clase realista, útil, inclusiva y lista para ser usada.",
+        "Rol: Actúa como un experto en diseño instruccional y un co-piloto para un profesor chileno. Tu objetivo es crear una planificación de clase realista, útil y lista para ser usada. La planificación debe estar alineada con el currículum nacional chileno y adaptada al contexto específico del aula y las necesidades del docente. La planificación debe ser escrita con lujo de detalles, sin omitir pasos, y debe ser práctica y aplicable en un entorno real de aula.",
         "---",
         "Contexto Curricular:",
         f"- Asignatura: {contexto_asignatura.get('asignatura', 'N/A')}",
@@ -164,7 +164,7 @@ async def generate_plan(
     prompt_parts.extend([
         "---",
         "Instrucciones de Salida:",
-        "Genera una planificación de clase en formato Markdown. La planificación debe ser completa, realista, inclusiva y estar estructurada en tres fases claras: Inicio, Desarrollo y Cierre.",
+        "Genera una planificación de clase en formato Markdown. La planificación debe ser completa, realista y estar estructurada en tres fases claras: Inicio, Desarrollo y Cierre.",
         "Ajusta la duración de cada fase según la duración total de la clase.",
         "Considera todas las restricciones y contextos proporcionados para crear actividades y evaluaciones coherentes y aplicables.",
         "Si se mencionó diversidad, sugiere adaptaciones específicas (ej. 'Para los estudiantes con TEA...').",
