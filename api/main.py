@@ -59,7 +59,8 @@ app = FastAPI(
 
 # --- Configuración de CORS ---
 origins = [
-    "http://localhost:3000", # Origen del frontend de Next.js
+    "http://localhost:3000", # Origen del frontend de Next.js en desarrollo
+    "https://teaching-planning-assistant-fronten.vercel.app", # Origen del frontend desplegado en Vercel
 ]
 
 app.add_middleware(
