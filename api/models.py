@@ -101,5 +101,21 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+# --- Modelos para Analítica y Dashboards ---
+
+class UserCostSummary(BaseModel):
+    username: str
+    total_cost: float
+    total_plannings: int
+
+    class Config:
+        from_attributes = True
+
+class AdminDashboardStats(BaseModel):
+    total_users: int
+    total_system_cost: float
+    total_system_plannings: int
+    users_summary: list[UserCostSummary]
+
 class UserInDB(User):
     hashed_password: str

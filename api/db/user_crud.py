@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from .. import models as pydantic_models
 from ..db import models as db_models
 from ..core import security
@@ -35,3 +36,23 @@ def update_user_role(db: Session, user: db_models.User, role: str) -> db_models.
     db.commit()
     db.refresh(user)
     return user
+
+# --- Funciones para el Dashboard de Administración ---
+
+def get_total_user_count(db: Session) -> int:
+    return db.query(db_models.User).count()
+
+def get_users_with_cost_summary(db: Session):
+    """
+    Calcula el costo total y el número de planificaciones para cada usuario.
+    """
+    return (
+        db.query(
+            db_models.User.username,
+            func.sum(db_models.PlanningLog.cost).label("total_cost"),
+            func.count(db_models.PlanningLog.id).label("total_plannings"),
+        )
+        .outerjoin(db_models.PlanningLog, db_models.User.id == db_models.PlanningLog.user_id)
+        .group_by(db_models.User.username)
+        .all()
+    )
