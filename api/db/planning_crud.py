@@ -34,3 +34,17 @@ def get_planning_logs_by_user_id(db: Session, user_id: int):
         .order_by(db_models.PlanningLog.timestamp.desc())
         .all()
     )
+
+def get_planning_log_by_id_for_user(db: Session, planning_id: int, user_id: int):
+    """
+    Obtiene un registro de planificación específico por su ID,
+    asegurándose de que pertenezca al usuario especificado.
+    """
+    return (
+        db.query(db_models.PlanningLog)
+        .filter(
+            db_models.PlanningLog.id == planning_id,
+            db_models.PlanningLog.user_id == user_id
+        )
+        .first()
+    )

@@ -103,6 +103,9 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+class UserInDB(User):
+    hashed_password: str
+
 # --- Modelos para Analítica y Dashboards ---
 
 class UserCostSummary(BaseModel):
@@ -121,9 +124,6 @@ class AdminDashboardStats(BaseModel):
     total_system_plannings: int
     users_summary: list[UserCostSummary]
 
-class UserInDB(User):
-    hashed_password: str
-
 class PlanningLogResponse(BaseModel):
     id: int
     oa_codigo: str
@@ -132,3 +132,8 @@ class PlanningLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class PlanningLogDetailResponse(PlanningLogResponse):
+    input_tokens: int
+    output_tokens: int
+    thought_tokens: int

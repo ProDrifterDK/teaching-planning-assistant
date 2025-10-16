@@ -7,7 +7,7 @@ import logging
 import json
 from sqlalchemy.orm import Session
 
-from ..models import PlanRequest, StreamThought, StreamAnswer, User, PlanningLogResponse
+from ..models import PlanRequest, StreamThought, StreamAnswer, User, PlanningLogResponse, PlanningLogDetailResponse
 from ..core.config import settings
 from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
@@ -199,3 +199,25 @@ def get_user_planning_history(
     """
     history = planning_crud.get_planning_logs_by_user_id(db, user_id=current_user.id)
     return history
+
+@router.get(
+    "/history/{planning_id}",
+    response_model=PlanningLogDetailResponse,
+    summary="Obtener detalle de una planificación específica",
+    description="Devuelve los detalles completos de un registro de planificación, solo si pertenece al usuario autenticado.",
+    responses={404: {"description": "La planificación no fue encontrada o no pertenece al usuario."}}
+)
+def get_planning_detail(
+    planning_id: int,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Session = Depends(get_db)
+):
+    """
+    Endpoint para obtener los detalles de una entrada específica del historial de planificación.
+    """
+    log_detail = planning_crud.get_planning_log_by_id_for_user(
+        db, planning_id=planning_id, user_id=current_user.id
+    )
+    if not log_detail:
+        raise HTTPException(status_code=404, detail="Planificación no encontrada.")
+    return log_detail
