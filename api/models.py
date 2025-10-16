@@ -137,3 +137,5 @@ class PlanningLogDetailResponse(PlanningLogResponse):
     input_tokens: int
     output_tokens: int
     thought_tokens: int
+    plan_request_data: PlanRequest
+    plan_markdown: str

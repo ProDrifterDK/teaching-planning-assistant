@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from typing import Dict, Any
 from . import models as db_models
 
 def create_planning_log(
@@ -9,6 +10,8 @@ def create_planning_log(
     input_tokens: int,
     output_tokens: int,
     thought_tokens: int,
+    plan_request_data: Dict[str, Any],
+    plan_markdown: str,
 ):
     db_log = db_models.PlanningLog(
         user_id=user_id,
@@ -17,6 +20,8 @@ def create_planning_log(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         thought_tokens=thought_tokens,
+        plan_request_data=plan_request_data,
+        plan_markdown=plan_markdown,
     )
     db.add(db_log)
     db.commit()

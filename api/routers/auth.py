@@ -45,7 +45,7 @@ def get_current_active_user(
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="El usuario está inactivo. Se requiere activación por parte de un administrador.",
+            detail="Tu cuenta aún no ha sido activada. Por favor, contacta a un administrador para solicitar la activación.",
         )
     return current_user
 

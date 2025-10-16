@@ -1,4 +1,5 @@
-from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, Float, DateTime, ForeignKey, Text
+from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .session import Base
@@ -28,6 +29,10 @@ class PlanningLog(Base):
     output_tokens = Column(Integer)
     thought_tokens = Column(Integer)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Campos para almacenar el contexto completo de la planificación
+    plan_request_data = Column(JSON)
+    plan_markdown = Column(Text)
 
     # Relación muchos a uno con el usuario
     user = relationship("User", back_populates="planning_logs")

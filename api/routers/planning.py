@@ -20,15 +20,16 @@ router = APIRouter(
     tags=["Co-piloto de Planificación"]
 )
 
-async def stream_generator(prompt: str, oa_codigo: str, user_id: int, db: Session):
+async def stream_generator(prompt: str, request_data: PlanRequest, user_id: int, db: Session):
     """
     Generador asíncrono que produce fragmentos de la respuesta de Gemini.
-    Al finalizar, calcula el costo y lo registra en la base de datos.
+    Al finalizar, acumula la respuesta, calcula el costo y lo registra todo en la base de datos.
     """
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    full_markdown_response = ""
     
     full_config = types.GenerateContentConfig(
-        max_output_tokens=65536,
+        max_output_tokens=8192,
         thinking_config=types.ThinkingConfig(
             thinking_budget=-1,
             include_thoughts=True
@@ -38,7 +39,7 @@ async def stream_generator(prompt: str, oa_codigo: str, user_id: int, db: Sessio
 
     try:
         stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.5-pro',
+            model='gemini-1.5-pro',
             contents=prompt,
             config=full_config
         )
@@ -55,34 +56,37 @@ async def stream_generator(prompt: str, oa_codigo: str, user_id: int, db: Sessio
                         thought_chunk = StreamThought(content=part.text)
                         yield f"data: {thought_chunk.json()}\n\n"
                     else:
+                        full_markdown_response += part.text
                         answer_chunk = StreamAnswer(content=part.text)
                         yield f"data: {answer_chunk.json()}\n\n"
 
     except Exception as e:
-        logging.error(f"Error durante el stream para OA '{oa_codigo}': {e}")
+        logging.error(f"Error durante el stream para OA '{request_data.oa_codigo_oficial}': {e}")
         error_response = {"type": "error", "content": str(e)}
         yield f"data: {json.dumps(error_response)}\n\n"
     finally:
-        if final_usage_metadata:
+        if final_usage_metadata and full_markdown_response:
             input_tokens = final_usage_metadata.prompt_token_count or 0
             output_tokens = final_usage_metadata.candidates_token_count or 0
             thought_tokens = final_usage_metadata.thoughts_token_count or 0
             cost = calculate_cost(input_tokens, output_tokens + thought_tokens)
             
-            # Guardar el log en la base de datos
+            # Guardar el log completo en la base de datos
             try:
                 planning_crud.create_planning_log(
                     db=db,
                     user_id=user_id,
-                    oa_codigo=oa_codigo,
+                    oa_codigo=request_data.oa_codigo_oficial,
                     cost=cost,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
                     thought_tokens=thought_tokens,
+                    plan_request_data=request_data.model_dump(),
+                    plan_markdown=full_markdown_response,
                 )
-                logging.info(f"Costo de ${cost:.6f} registrado para el usuario ID {user_id} y OA '{oa_codigo}'.")
+                logging.info(f"Planificación y costo de ${cost:.6f} registrados para el usuario ID {user_id} y OA '{request_data.oa_codigo_oficial}'.")
             except Exception as e:
-                logging.error(f"Error al registrar el costo para el usuario ID {user_id}: {e}")
+                logging.error(f"Error al registrar la planificación para el usuario ID {user_id}: {e}")
 
 @router.post(
     "/generate-plan",
@@ -177,7 +181,7 @@ async def generate_plan(
     return StreamingResponse(
         stream_generator(
             prompt=prompt,
-            oa_codigo=request.oa_codigo_oficial,
+            request_data=request,
             user_id=current_user.id,
             db=db
         ),
