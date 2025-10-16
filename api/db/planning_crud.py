@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 from . import models as db_models
+from datetime import datetime
+import pytz
 
 def create_planning_log(
     db: Session,
@@ -13,6 +15,12 @@ def create_planning_log(
     plan_request_data: Dict[str, Any],
     plan_markdown: str,
 ):
+    # Obtener la zona horaria de Santiago
+    santiago_tz = pytz.timezone("America/Santiago")
+    
+    # Crear un timestamp consciente de la zona horaria
+    aware_timestamp = datetime.now(santiago_tz)
+
     db_log = db_models.PlanningLog(
         user_id=user_id,
         oa_codigo=oa_codigo,
@@ -22,6 +30,7 @@ def create_planning_log(
         thought_tokens=thought_tokens,
         plan_request_data=plan_request_data,
         plan_markdown=plan_markdown,
+        timestamp=aware_timestamp,
     )
     db.add(db_log)
     db.commit()
