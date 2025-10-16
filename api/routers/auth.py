@@ -73,6 +73,11 @@ async def login_for_access_token(
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tu cuenta está desactivada. Por favor, contacta a un administrador.",
+        )
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = security.create_access_token(
@@ -98,7 +103,7 @@ async def create_user(
 
 @router.get("/users/me", response_model=User)
 async def read_users_me(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ):
     """
     Devuelve los datos del usuario actualmente autenticado, incluyendo su rol.
