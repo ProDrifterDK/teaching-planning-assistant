@@ -29,7 +29,7 @@ async def stream_generator(prompt: str, request_data: PlanRequest, user_id: int,
     full_markdown_response = ""
     
     full_config = types.GenerateContentConfig(
-        max_output_tokens=8192,
+        max_output_tokens=65536,
         thinking_config=types.ThinkingConfig(
             thinking_budget=-1,
             include_thoughts=True
@@ -39,7 +39,7 @@ async def stream_generator(prompt: str, request_data: PlanRequest, user_id: int,
 
     try:
         stream = await client.aio.models.generate_content_stream(
-            model='gemini-1.5-pro',
+            model='gemini-2.5-pro',
             contents=prompt,
             config=full_config
         )

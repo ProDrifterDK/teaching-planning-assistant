@@ -94,7 +94,7 @@ def get_skills_from_gemini(text_to_analyze, client):
         temperature=0.3
     )
     
-    model = client.get_model('gemini-1.5-pro-latest')
+    model = client.get_model('gemini-2.5-pro-latest')
     
     for attempt in range(max_retries):
         response = None

@@ -26,10 +26,9 @@ def create_initial_admin_user():
             # Creamos el usuario a través del CRUD
             new_admin = user_crud.create_user(db, admin_user_in)
             # Lo activamos inmediatamente
-            user_crud.update_user_status(db, new_admin, is_active=True)
+            user_crud.update_user_status(db, user=new_admin, is_active=True)
             # Le asignamos el rol de admin
-            new_admin.role = "admin"
-            db.commit()
+            user_crud.update_user_role(db, user=new_admin, role="admin")
             logging.info("Usuario administrador 'admin' creado y activado exitosamente.")
         else:
             logging.info("Usuario administrador 'admin' ya existe.")
