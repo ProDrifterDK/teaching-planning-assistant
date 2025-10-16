@@ -1,13 +1,15 @@
-from typing import Annotated, List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Annotated, List, Any, Optional
+from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from fastapi.responses import StreamingResponse
 from google.genai import types
 import google.genai as genai
 import logging
 import json
+import time
 from sqlalchemy.orm import Session
+from io import BytesIO
 
-from ..models import PlanRequest, StreamThought, StreamAnswer, User, PlanningLogResponse, PlanningLogDetailResponse
+from ..models import PlanRequest, StreamThought, StreamAnswer, User, PlanningLogResponse, PlanningLogDetailResponse, MultimodalResources, AttachmentDetail
 from ..core.config import settings
 from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
@@ -20,9 +22,9 @@ router = APIRouter(
     tags=["Co-piloto de Planificación"]
 )
 
-async def stream_generator(prompt: str, request_data: PlanRequest, user_id: int, db: Session):
+async def stream_generator(contents: List[Any], request_data: PlanRequest, user_id: int, db: Session):
     """
-    Generador asíncrono que produce fragmentos de la respuesta de Gemini.
+    Generador asíncrono que produce fragmentos de la respuesta de Gemini a partir de un prompt multimodal.
     Al finalizar, acumula la respuesta, calcula el costo y lo registra todo en la base de datos.
     """
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -40,7 +42,7 @@ async def stream_generator(prompt: str, request_data: PlanRequest, user_id: int,
     try:
         stream = await client.aio.models.generate_content_stream(
             model='gemini-2.5-pro',
-            contents=prompt,
+            contents=contents,
             config=full_config
         )
 
@@ -71,7 +73,6 @@ async def stream_generator(prompt: str, request_data: PlanRequest, user_id: int,
             thought_tokens = final_usage_metadata.thoughts_token_count or 0
             cost = calculate_cost(input_tokens, output_tokens + thought_tokens)
             
-            # Guardar el log completo en la base de datos
             try:
                 planning_crud.create_planning_log(
                     db=db,
@@ -93,35 +94,69 @@ async def stream_generator(prompt: str, request_data: PlanRequest, user_id: int,
     responses={
         200: {
             "content": {"text/event-stream": {}},
-            "description": """Respuesta en formato Server-Sent Events (SSE). Cada evento es una línea `data:` seguida de un objeto JSON.
-            
-Ejemplo de evento de 'pensamiento':
-`data: {"type": "thought", "content": "Estoy analizando el OA..."}`
-
-Ejemplo de evento de 'respuesta':
-`data: {"type": "answer", "content": "Aquí está la primera parte..."}`
-""",
+            "description": "Respuesta en formato Server-Sent Events (SSE).",
         }
     },
 )
 async def generate_plan(
-    request: PlanRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
     service: CurriculumService = Depends(get_curriculum_service),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    
+    oa_codigo_oficial: Annotated[str, Form()] = "",
+    curso: Annotated[str, Form()] = "", # Nuevo parámetro para desambiguación
+    recurso_principal: Annotated[str, Form()] = "",
+    nivel_real_estudiantes: Annotated[str, Form()] = "",
+    duracion_clase_minutos: Annotated[int, Form()] = 90,
+    materiales_disponibles: Annotated[Optional[str], Form()] = None,
+    numero_estudiantes: Annotated[Optional[int], Form()] = None,
+    diversidad_aula: Annotated[Optional[str], Form()] = None,
+    clima_de_aula: Annotated[Optional[str], Form()] = None,
+    estilo_docente_preferido: Annotated[Optional[str], Form()] = None,
+    tipo_evaluacion_formativa: Annotated[Optional[str], Form()] = None,
+    contexto_unidad: Annotated[Optional[str], Form()] = None,
+    conocimientos_previos_requeridos: Annotated[Optional[str], Form()] = None,
+    solicitud_especial: Annotated[Optional[str], Form()] = None,
+    
+    youtube_url: Annotated[Optional[str], Form()] = None,
+    attachments: Annotated[Optional[List[UploadFile]], File()] = None
 ):
     if not settings.GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="La API de Gemini no está configurada.")
+        
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-    oa_details = service.find_oa_details(request.oa_codigo_oficial)
+    form_data = {
+        field: value for field, value in locals().items() 
+        if field in PlanRequest.model_fields and field not in ['current_user', 'service', 'db']
+    }
+    request = PlanRequest(**form_data)
+    
+    oa_details = service.find_oa_details(request.oa_codigo_oficial, curso=request.curso)
     if not oa_details:
-        raise HTTPException(status_code=404, detail=f"OA '{request.oa_codigo_oficial}' no encontrado.")
+        raise HTTPException(status_code=404, detail=f"OA '{request.oa_codigo_oficial}' no encontrado para el curso '{request.curso}'.")
     
     oa_completo = oa_details["oa_completo"]
     contexto_asignatura = oa_details["contexto_asignatura"]
     eje = oa_details["eje"]
     
-    # --- Construcción Dinámica del Prompt ---
+    # --- Logging Detallado de la Solicitud ---
+    log_details = {
+        "user": current_user.username,
+        "request": {
+            "oa_codigo_oficial": request.oa_codigo_oficial,
+            "recurso_principal": request.recurso_principal,
+            "has_youtube_url": bool(youtube_url),
+            "attachment_count": len(attachments) if attachments else 0,
+        },
+        "context": {
+            "asignatura": contexto_asignatura.get('asignatura', 'N/A'),
+            "curso": contexto_asignatura.get('curso', 'N/A'),
+            "oa_descripcion": oa_completo.get('descripcion_oa', 'N/A'),
+        }
+    }
+    logging.info(f"Generando plan con los siguientes detalles: {json.dumps(log_details, indent=2)}")
+
     prompt_parts = [
         "Rol: Actúa como un experto en diseño instruccional y un co-piloto para un profesor chileno. Tu objetivo es crear una planificación de clase realista, útil y lista para ser usada. La planificación debe estar alineada con el currículum nacional chileno y adaptada al contexto específico del aula y las necesidades del docente. La planificación debe ser escrita con lujo de detalles, sin omitir pasos, y debe ser práctica y aplicable en un entorno real de aula.",
         "---",
@@ -175,12 +210,60 @@ async def generate_plan(
         "Si se pidió reforzar conocimientos previos, diseña una actividad de Inicio explícita para ello.",
         "Si se pidió un tipo de evaluación, detalla esa actividad en el Cierre."
     ])
+    
+    prompt_text = "\n".join(prompt_parts)
+    contents: List[Any] = [prompt_text]
+    
+    processed_attachments = []
+    processed_youtube_urls = []
 
-    prompt = "\n".join(prompt_parts)
+    if attachments:
+        for upload_file in attachments:
+            try:
+                logging.info(f"Subiendo archivo: {upload_file.filename}")
+                file_bytes = await upload_file.read()
+                bytes_io_file = BytesIO(file_bytes)
+                
+                uploaded_file: Any = client.files.upload(file=bytes_io_file)
+                assert uploaded_file is not None
+
+                while uploaded_file.state.name == "PROCESSING":
+                    logging.info(f"Archivo {uploaded_file.name} en procesamiento, esperando 5 segundos...")
+                    time.sleep(5)
+                    uploaded_file = client.files.get(name=uploaded_file.name)
+                    assert uploaded_file is not None
+                
+                if uploaded_file.state.name != "ACTIVE":
+                    raise HTTPException(status_code=500, detail=f"No se pudo procesar el archivo: {upload_file.filename}")
+
+                contents.append(uploaded_file)
+                if upload_file.filename:
+                    processed_attachments.append(AttachmentDetail(filename=upload_file.filename, gemini_uri=uploaded_file.uri))
+                logging.info(f"Archivo {uploaded_file.name} listo y añadido al prompt.")
+
+            except Exception as e:
+                logging.error(f"Error al subir el archivo {upload_file.filename}: {e}")
+                raise HTTPException(status_code=500, detail=f"Error al procesar el archivo {upload_file.filename}.")
+
+    if youtube_url and "youtube.com" in youtube_url:
+        try:
+            youtube_part = types.Part(file_data=types.FileData(file_uri=youtube_url))
+            contents.append(youtube_part)
+            processed_youtube_urls.append(youtube_url)
+            logging.info(f"URL de YouTube {youtube_url} añadida al prompt.")
+        except Exception as e:
+            logging.error(f"Error al procesar la URL de YouTube {youtube_url}: {e}")
+            raise HTTPException(status_code=500, detail=f"URL de YouTube inválida o no accesible.")
+
+    if processed_attachments or processed_youtube_urls:
+        request.multimodal_resources = MultimodalResources(
+            youtube_urls=processed_youtube_urls if processed_youtube_urls else None,
+            attachments=processed_attachments if processed_attachments else None
+        )
 
     return StreamingResponse(
         stream_generator(
-            prompt=prompt,
+            contents=contents,
             request_data=request,
             user_id=current_user.id,
             db=db
@@ -198,9 +281,6 @@ def get_user_planning_history(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Session = Depends(get_db)
 ):
-    """
-    Endpoint para que un usuario pueda consultar su propio historial de planificaciones.
-    """
     history = planning_crud.get_planning_logs_by_user_id(db, user_id=current_user.id)
     return history
 
@@ -216,9 +296,6 @@ def get_planning_detail(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Session = Depends(get_db)
 ):
-    """
-    Endpoint para obtener los detalles de una entrada específica del historial de planificación.
-    """
     log_detail = planning_crud.get_planning_log_by_id_for_user(
         db, planning_id=planning_id, user_id=current_user.id
     )

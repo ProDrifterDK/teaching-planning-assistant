@@ -39,22 +39,41 @@ class CurriculumService:
                 return item.get('ejes', [])
         return []
 
-    def find_oa_details(self, oa_code: str) -> Dict[str, Any] | None:
-        """Encuentra el OA completo y su contexto de asignatura/curso."""
+    def find_oa_details(self, oa_code: str, curso: str | None = None) -> Dict[str, Any] | None:
+        """
+        Encuentra el OA completo y su contexto.
+        Si se proporciona 'curso', lo usa para desambiguar OAs que existen en múltiples cursos.
+        """
         data = self.get_all_data()
+        found_item = None
+
         for item in data:
+            # Si se especifica un curso, filtramos por él desde el principio.
+            if curso and item.get('curso') != curso:
+                continue
+
             for eje in item.get('ejes', []):
                 for oa in eje.get('oas', []):
-                    # Comparamos directamente el código oficial que viene del JSON
-                    # con el que se envía desde el frontend.
-                    codigo_oficial_en_json = oa.get('oa_codigo_oficial', '')
-                    if codigo_oficial_en_json == oa_code:
-                        return {
+                    if oa.get('oa_codigo_oficial') == oa_code:
+                        # Si encontramos una coincidencia, la guardamos.
+                        # Si ya habíamos especificado un curso, esta es la respuesta definitiva.
+                        found_item = {
                             "oa_completo": oa,
                             "contexto_asignatura": item,
                             "eje": eje
                         }
-        return None
+                        if curso:
+                            return found_item
+            
+            # Si hemos iterado un 'item' (curso-asignatura) y encontramos algo
+            # pero no teníamos un curso especificado, devolvemos esta primera coincidencia.
+            # Esto mantiene el comportamiento original si no se envía el curso.
+            if found_item and not curso:
+                return found_item
+                
+        # Si hemos especificado un curso pero no encontramos nada, devolvemos None.
+        # O si recorrimos todo y no encontramos ninguna coincidencia.
+        return found_item
 
 
 # --- Instancia Singleton ---

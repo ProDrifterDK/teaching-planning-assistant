@@ -26,8 +26,17 @@ class NivelDetail(BaseModel):
     curso: str
     asignaturas: List[str]
 
+class AttachmentDetail(BaseModel):
+    filename: str
+    gemini_uri: str
+
+class MultimodalResources(BaseModel):
+    youtube_urls: Optional[List[str]] = Field(None)
+    attachments: Optional[List[AttachmentDetail]] = Field(None)
+
 class PlanRequest(BaseModel):
     oa_codigo_oficial: str = Field(..., description="Código oficial del OA a planificar.")
+    curso: Optional[str] = Field(None, description="Curso seleccionado, para desambiguar OAs compartidos.")
     
     recurso_principal: str = Field(..., description="Recurso central sobre el cual girará la clase.")
     nivel_real_estudiantes: str = Field(..., description="Descripción cualitativa del nivel del curso.")
@@ -45,6 +54,8 @@ class PlanRequest(BaseModel):
     contexto_unidad: Optional[str] = Field(None, description="Momento de la secuencia didáctica en que se enmarca la clase.")
     conocimientos_previos_requeridos: Optional[str] = Field(None, description="Habilidad o contenido prerrequisito que se necesite reforzar.")
     solicitud_especial: Optional[str] = Field(None, description="Instrucciones o notas adicionales del profesor para guiar la generación.")
+    
+    multimodal_resources: Optional[MultimodalResources] = Field(None, description="Recursos multimodales (videos, archivos) asociados a la planificación.")
 
     class Config:
         json_schema_extra = {
@@ -60,7 +71,13 @@ class PlanRequest(BaseModel):
                 "estilo_docente_preferido": "Aprendizaje colaborativo en grupos",
                 "tipo_evaluacion_formativa": "Crear un mini-cómic de 3 viñetas",
                 "contexto_unidad": "Es la clase de cierre de la Unidad 1: 'El héroe en distintas épocas'.",
-                "conocimientos_previos_requeridos": "Diferenciar entre acciones de personajes y sus motivaciones."
+                "conocimientos_previos_requeridos": "Diferenciar entre acciones de personajes y sus motivaciones.",
+                "multimodal_resources": {
+                    "youtube_urls": ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+                    "attachments": [
+                        {"filename": "diagrama_heroe.png", "gemini_uri": "files/abcdef123456"}
+                    ]
+                }
             }
         }
 
