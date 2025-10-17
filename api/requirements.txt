@@ -10,3 +10,6 @@ python-multipart
 sqlalchemy
 alembic
 pytz
+pypandoc
+pypandoc-binary
+weasyprint
