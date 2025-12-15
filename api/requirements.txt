@@ -13,3 +13,6 @@ pytz
 pypandoc
 pypandoc-binary
 weasyprint
+httpx>=0.25.0
+psutil>=5.9.0
+aiosqlite

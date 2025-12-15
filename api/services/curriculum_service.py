@@ -75,6 +75,40 @@ class CurriculumService:
         # O si recorrimos todo y no encontramos ninguna coincidencia.
         return found_item
 
+    async def get_oas_by_ids(
+        self,
+        db: Any,
+        oa_ids: List[str],
+        grade_level: str,
+        subject: str
+    ) -> dict:
+        """
+        Fetch curriculum OAs by their identifiers.
+        Returns a dict with 'oas' list containing the matched OAs.
+        """
+        data = self.get_all_data()
+        matched_oas = []
+        
+        for item in data:
+            # Filter by grade and subject if provided
+            if grade_level and item.get('curso') != grade_level:
+                continue
+            if subject and item.get('asignatura') != subject:
+                continue
+                
+            for eje in item.get('ejes', []):
+                for oa in eje.get('oas', []):
+                    if oa.get('oa_codigo_oficial') in oa_ids:
+                        matched_oas.append({
+                            "codigo": oa.get('oa_codigo_oficial'),
+                            "descripcion": oa.get('descripcion_oa'),
+                            "eje": eje.get('nombre_eje'),
+                            "habilidades": oa.get('habilidades', []),
+                            "actitudes": [a.get('descripcion') for a in item.get('actitudes', [])]
+                        })
+        
+        return {"oas": matched_oas}
+
 
 # --- Instancia Singleton ---
 # Apuntamos al archivo correcto que el usuario está modificando.

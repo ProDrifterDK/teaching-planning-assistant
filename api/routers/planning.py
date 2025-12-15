@@ -6,21 +6,94 @@ import google.genai as genai
 import logging
 import json
 import time
+from datetime import datetime
 from sqlalchemy.orm import Session
 from io import BytesIO
 
-from ..models import PlanRequest, StreamThought, StreamAnswer, User, PlanningLogResponse, PlanningLogDetailResponse, MultimodalResources, AttachmentDetail
+from ..models import PlanRequest, StreamThought, StreamAnswer, User, PlanningLogResponse, PlanningLogDetailResponse, MultimodalResources, AttachmentDetail, StructuredPlanRequest, StructuredPlanResponse
 from ..core.config import settings
 from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
+from ..services.content_generation_service import content_generation_service
 from .auth import get_current_active_user
+from ..core.security import get_current_user_or_client
 from ..db.session import get_db
 from ..db import planning_crud
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(
     prefix="/planning",
     tags=["Co-piloto de Planificación"]
 )
+
+@router.post("/generate-plan-structured", response_model=StructuredPlanResponse)
+async def generate_structured_plan(
+    request: StructuredPlanRequest,
+    auth = Depends(get_current_user_or_client),  # Accepts JWT or API Key
+    db: Session = Depends(get_db),
+    curriculum_service: CurriculumService = Depends(get_curriculum_service)
+):
+    """
+    Generate a structured lesson plan in JSON format.
+    
+    This endpoint generates a complete lesson plan with structured data
+    suitable for programmatic consumption. Unlike the streaming endpoint,
+    this returns a single JSON response.
+    
+    Authentication: JWT token OR API Key (with planning:generate permission)
+    """
+    start_time = datetime.utcnow()
+    
+    try:
+        # Get curriculum data for the requested OAs
+        curriculum_data = await curriculum_service.get_oas_by_ids(
+            db, request.oa_ids, request.grade_level, request.subject
+        )
+        
+        if not curriculum_data.get('oas'):
+            return StructuredPlanResponse(
+                success=False,
+                lesson=None,
+                generation_metadata={
+                    "requested_at": start_time.isoformat(),
+                    "duration_ms": 0
+                },
+                error="No valid OAs found for the given identifiers"
+            )
+        
+        # Generate the structured lesson
+        lesson = await content_generation_service.generate_structured_lesson(
+            request, curriculum_data
+        )
+        
+        end_time = datetime.utcnow()
+        duration_ms = int((end_time - start_time).total_seconds() * 1000)
+        
+        return StructuredPlanResponse(
+            success=True,
+            lesson=lesson,
+            generation_metadata={
+                "requested_at": start_time.isoformat(),
+                "completed_at": end_time.isoformat(),
+                "duration_ms": duration_ms,
+                "model": "gemini-2.0-flash-exp",
+                "oas_used": request.oa_ids,
+                "grade_level": request.grade_level,
+                "subject": request.subject
+            },
+            error=None
+        )
+        
+    except Exception as e:
+        return StructuredPlanResponse(
+            success=False,
+            lesson=None,
+            generation_metadata={
+                "requested_at": start_time.isoformat(),
+                "error_time": datetime.utcnow().isoformat()
+            },
+            error=str(e)
+        )
 
 async def stream_generator(contents: List[Any], request_data: PlanRequest, user_id: int, db: Session):
     """

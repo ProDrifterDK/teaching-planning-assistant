@@ -4,7 +4,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from .routers import admin, auth, curriculum, planning, export
+# Import new components
+from api.routers import health
+from api.middleware.rate_limit import RateLimitMiddleware
+
+from .routers import admin, auth, curriculum, planning, export, apikeys, content, validation, batch, tutor
 from .db.session import engine, SessionLocal
 from .db import models as db_models, user_crud
 from .models import UserCreate
@@ -50,11 +54,16 @@ async def lifespan(app: FastAPI):
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 app = FastAPI(
-    title="API de Planificación Curricular",
-    description="API para consultar y utilizar los datos del currículum nacional chileno, enriquecidos con IA.",
-    version="2.1.0",
+    title="Teaching Planning Assistant API",
+    description="Autonomous educational content generation engine for Chilean curriculum",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
     lifespan=lifespan
 )
+
+# Add middleware (order matters - rate limit should be early)
+app.add_middleware(RateLimitMiddleware)
 
 # --- Configuración de CORS ---
 origins = [
@@ -70,11 +79,19 @@ app.add_middleware(
     allow_headers=["*"], # Permite todas las cabeceras (incluyendo Authorization)
 )
 
+# Include health router (without prefix for standard paths)
+app.include_router(health.router)
+
 app.include_router(curriculum.router)
 app.include_router(planning.router)
 app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(export.router)
+app.include_router(apikeys.router)
+app.include_router(content.router)
+app.include_router(validation.router)
+app.include_router(batch.router)
+app.include_router(tutor.router)
 
 @app.get("/", tags=["General"])
 def read_root():

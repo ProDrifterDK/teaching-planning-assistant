@@ -18,6 +18,15 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    # Rate Limiting
+    RATE_LIMIT_DEFAULT_PER_MINUTE: int = 60
+    RATE_LIMIT_API_KEY_PER_MINUTE: int = 100
+    RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Service Info
+    VERSION: str = "2.0.0"  # New version with Colegio Alas integration
+    SERVICE_NAME: str = "teaching-planning-assistant"
+
     class Config:
         env_file = ".env"
         # Esto permite que Pydantic ignore campos extra si se definen en el .env
