@@ -1,6 +1,6 @@
 [phases.setup]
 nixPkgs = ["python311", "python311Packages.pip", "pkg-config"]
-nixLibs = ["glib", "gobject-introspection", "cairo", "pango", "gdk-pixbuf", "harfbuzz", "libffi", "fontconfig"]
+nixLibs = ["glib", "gobject-introspection", "cairo", "pango", "gdk-pixbuf", "harfbuzz", "libffi", "fontconfig", "stdenv.cc.cc.lib", "zlib"]
 
 [phases.install]
 cmds = [
