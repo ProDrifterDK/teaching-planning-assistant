@@ -54,6 +54,7 @@ def verify_token(token: str, credentials_exception) -> str:
 # API Key header scheme
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 def get_api_key_client(
     api_key: str = Security(api_key_header),
@@ -105,7 +106,7 @@ def require_permission(permission: str):
 
 # Combined auth - accepts either JWT or API Key
 def get_current_user_or_client(
-    token: Optional[str] = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme_optional),
     api_key: Optional[str] = Security(api_key_header),
     db: Session = Depends(get_db)
 ) -> Union[User, ServiceClient]:
