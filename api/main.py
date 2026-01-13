@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -11,6 +12,7 @@ from api.middleware.rate_limit import RateLimitMiddleware
 from .routers import admin, auth, curriculum, planning, export, apikeys, content, validation, batch, tutor
 from .db.session import engine, SessionLocal
 from .db import models as db_models, user_crud
+from .db.apikey_crud import create_service_client, list_service_clients, hash_api_key
 from .models import UserCreate
 
 # Esta función se ejecuta al iniciar la aplicación
@@ -39,6 +41,57 @@ def create_initial_admin_user():
     finally:
         db.close()
 
+def create_initial_api_keys():
+    """Create API keys for known clients on startup if they don't exist.
+    Uses environment variables for pre-defined API keys to maintain consistency across deploys."""
+    db = SessionLocal()
+    try:
+        existing_clients = list_service_clients(db)
+        existing_names = [c.client_name for c in existing_clients]
+        
+        # Check for Colegio Alas client
+        if "colegio-alas-prod" not in existing_names:
+            # Get pre-defined API key from environment, or generate a new one
+            predefined_key = os.getenv("COLEGIO_ALAS_API_KEY")
+            
+            if predefined_key:
+                # Use predefined key from environment
+                logging.info("Creating 'colegio-alas-prod' API client with predefined key from environment...")
+                api_key_hash = hash_api_key(predefined_key)
+                
+                db_client = db_models.ServiceClient(
+                    client_name="colegio-alas-prod",
+                    api_key_hash=api_key_hash,
+                    permissions=["batch:create", "batch:read", "generate:quiz", "generate:activity",
+                                "generate:exam", "generate:reinforcement", "generate:lesson",
+                                "content:generate", "content:adapt", "planning:generate"],
+                    rate_limit=200,
+                    webhook_url=None
+                )
+                db.add(db_client)
+                db.commit()
+                logging.info("✅ 'colegio-alas-prod' API client created successfully with predefined key.")
+            else:
+                # Generate new key (warning: this won't match existing configs)
+                logging.warning("COLEGIO_ALAS_API_KEY not set in environment. Generating new key...")
+                client, raw_key = create_service_client(
+                    db,
+                    client_name="colegio-alas-prod",
+                    permissions=["batch:create", "batch:read", "generate:quiz", "generate:activity",
+                                "generate:exam", "generate:reinforcement", "generate:lesson",
+                                "content:generate", "content:adapt", "planning:generate"],
+                    rate_limit=200,
+                    webhook_url=None
+                )
+                logging.warning(f"⚠️ New API key generated. Update COLEGIO_ALAS_API_KEY env var with: {raw_key}")
+        else:
+            logging.info("API client 'colegio-alas-prod' already exists.")
+            
+    except Exception as e:
+        logging.error(f"Error creating initial API keys: {e}")
+    finally:
+        db.close()
+
 # -- Lifespan Events ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -46,6 +99,7 @@ async def lifespan(app: FastAPI):
     logging.info("Iniciando aplicación y creando tablas de base de datos...")
     db_models.Base.metadata.create_all(bind=engine)
     create_initial_admin_user()
+    create_initial_api_keys()
     yield
     # Esto se ejecuta al apagar la aplicación (si es necesario)
     logging.info("Apagando aplicación...")
