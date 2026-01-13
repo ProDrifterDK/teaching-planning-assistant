@@ -40,26 +40,50 @@ async def generate_structured_plan(
     suitable for programmatic consumption. Unlike the streaming endpoint,
     this returns a single JSON response.
     
+    Supports both OA-based and topic-based generation for flexibility.
+    
     Authentication: JWT token OR API Key (with planning:generate permission)
     """
     start_time = datetime.utcnow()
     
     try:
-        # Get curriculum data for the requested OAs
-        curriculum_data = await curriculum_service.get_oas_by_ids(
-            db, request.oa_ids, request.grade_level, request.subject
-        )
+        curriculum_data = {'oas': []}
+        generation_mode = "topic_based"
         
-        if not curriculum_data.get('oas'):
-            return StructuredPlanResponse(
-                success=False,
-                lesson=None,
-                generation_metadata={
-                    "requested_at": start_time.isoformat(),
-                    "duration_ms": 0
-                },
-                error="No valid OAs found for the given identifiers"
+        # Try to get curriculum data if OA IDs are provided
+        if request.oa_ids:
+            curriculum_data = await curriculum_service.get_oas_by_ids(
+                db, request.oa_ids, request.grade_level, request.subject
             )
+            if curriculum_data.get('oas'):
+                generation_mode = "oa_based"
+        
+        # If no OAs found but topic provided, generate topic-based content
+        if not curriculum_data.get('oas'):
+            if request.topic:
+                # Create synthetic curriculum data from topic
+                curriculum_data = {
+                    'oas': [{
+                        'codigo': f'TOPIC_{request.topic[:20].upper().replace(" ", "_")}',
+                        'descripcion': f'Contenido basado en el tema: {request.topic}',
+                        'eje': request.subject,
+                        'habilidades': ['Comprender', 'Aplicar', 'Analizar', 'Crear'],
+                        'actitudes': []
+                    }],
+                    'topic': request.topic,
+                    'is_topic_based': True
+                }
+                generation_mode = "topic_based"
+            else:
+                return StructuredPlanResponse(
+                    success=False,
+                    lesson=None,
+                    generation_metadata={
+                        "requested_at": start_time.isoformat(),
+                        "duration_ms": 0
+                    },
+                    error="No valid OAs found and no topic provided. Please provide either valid OA IDs or a topic."
+                )
         
         # Generate the structured lesson
         lesson = await content_generation_service.generate_structured_lesson(
@@ -76,8 +100,10 @@ async def generate_structured_plan(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.0-flash-exp",
-                "oas_used": request.oa_ids,
+                "model": "gemini-2.5-flash",
+                "generation_mode": generation_mode,
+                "oas_used": request.oa_ids if generation_mode == "oa_based" else [],
+                "topic": request.topic if generation_mode == "topic_based" else None,
                 "grade_level": request.grade_level,
                 "subject": request.subject
             },

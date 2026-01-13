@@ -159,7 +159,8 @@ class StructuredLesson(BaseModel):
 
 class StructuredPlanRequest(BaseModel):
     """Request model for structured plan generation"""
-    oa_ids: List[str] = Field(..., description="List of OA identifiers to base lesson on")
+    oa_ids: Optional[List[str]] = Field(default=None, description="List of OA identifiers to base lesson on (optional if topic provided)")
+    topic: Optional[str] = Field(default=None, description="Topic for content generation (used when OA IDs not available)")
     grade_level: str = Field(..., description="Grade level (e.g., '5', '5° Básico')")
     subject: str = Field(..., description="Subject (e.g., 'Matemáticas', 'Lenguaje')")
     duration_minutes: int = Field(default=90, description="Desired lesson duration")
@@ -252,7 +253,8 @@ class Quiz(BaseModel):
 
 class GenerateQuizRequest(BaseModel):
     """Request model for quiz generation"""
-    oa_ids: List[str] = Field(..., description="OA identifiers to base quiz on")
+    oa_ids: Optional[List[str]] = Field(default=None, description="OA identifiers to base quiz on (optional if topic provided)")
+    topic: Optional[str] = Field(default=None, description="Topic for quiz generation (used when OA IDs not available)")
     grade_level: str = Field(..., description="Grade level")
     subject: str = Field(..., description="Subject")
     
