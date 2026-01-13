@@ -9,6 +9,7 @@ from api.models import (
     GenerateSummaryRequest, UnitSummary, SummaryFormat,
     TutorChatRequest, TutorResponse, TutorRole
 )
+from api.services.schema_utils import clean_schema_for_gemini
 import json
 import uuid
 from typing import Optional
@@ -33,10 +34,9 @@ class ContentGenerationService:
         # Build the prompt with curriculum context
         prompt = self._build_lesson_prompt(request, curriculum_data)
         
-        # Configure for JSON output
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=StructuredLesson.model_json_schema()
+            response_schema=clean_schema_for_gemini(StructuredLesson.model_json_schema())
         )
         
         # Generate with Gemini
@@ -65,10 +65,9 @@ class ContentGenerationService:
         """
         prompt = self._build_quiz_prompt(request, curriculum_data)
         
-        # Use JSON response format
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=Quiz.model_json_schema()
+            response_schema=clean_schema_for_gemini(Quiz.model_json_schema())
         )
         
         response = await self.model.generate_content_async(
@@ -94,7 +93,7 @@ class ContentGenerationService:
         
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=Activity.model_json_schema()
+            response_schema=clean_schema_for_gemini(Activity.model_json_schema())
         )
         
         response = await self.model.generate_content_async(
@@ -117,7 +116,7 @@ class ContentGenerationService:
         
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=Exam.model_json_schema()
+            response_schema=clean_schema_for_gemini(Exam.model_json_schema())
         )
         
         response = await self.model.generate_content_async(
@@ -140,7 +139,7 @@ class ContentGenerationService:
         
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=ReinforcementPlan.model_json_schema()
+            response_schema=clean_schema_for_gemini(ReinforcementPlan.model_json_schema())
         )
         
         response = await self.model.generate_content_async(
@@ -163,7 +162,7 @@ class ContentGenerationService:
         
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=UnitSummary.model_json_schema()
+            response_schema=clean_schema_for_gemini(UnitSummary.model_json_schema())
         )
         
         response = await self.model.generate_content_async(
@@ -189,7 +188,7 @@ class ContentGenerationService:
         
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=TutorResponse.model_json_schema()
+            response_schema=clean_schema_for_gemini(TutorResponse.model_json_schema())
         )
         
         response = await self.model.generate_content_async(
@@ -211,7 +210,7 @@ class ContentGenerationService:
         
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=AdaptedContent.model_json_schema()
+            response_schema=clean_schema_for_gemini(AdaptedContent.model_json_schema())
         )
         
         response = await self.model.generate_content_async(
@@ -238,7 +237,7 @@ class ContentGenerationService:
         
         generation_config = genai.GenerationConfig(
             response_mime_type="application/json",
-            response_schema=ValidationResult.model_json_schema()
+            response_schema=clean_schema_for_gemini(ValidationResult.model_json_schema())
         )
         
         response = await self.model.generate_content_async(
