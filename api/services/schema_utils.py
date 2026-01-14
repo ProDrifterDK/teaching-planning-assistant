@@ -1,14 +1,13 @@
 import copy
 from typing import Any, Dict
 
-# Fields that Gemini's schema validation doesn't support
-GEMINI_UNSUPPORTED_FIELDS = {
+# Simple fields that can be removed without breaking the schema
+GEMINI_REMOVABLE_FIELDS = {
     "title",
     "description",
     "examples",
     "default",
     "$schema",
-    "additionalProperties",
     "minLength",
     "maxLength",
     "minimum",
@@ -21,6 +20,13 @@ GEMINI_UNSUPPORTED_FIELDS = {
     "minItems",
     "maxItems",
     "uniqueItems",
+    "const",
+    "contentMediaType",
+    "contentEncoding",
+    "if",
+    "then",
+    "else",
+    "not",
 }
 
 
@@ -47,12 +53,93 @@ def inline_refs(schema: Dict[str, Any], defs: Dict[str, Any]) -> Dict[str, Any]:
         return schema
 
 
+def simplify_union_types(schema: Any) -> Any:
+    """
+    Simplify anyOf/oneOf constructs:
+    - For Optional types (anyOf with null), extract the non-null type
+    - For other unions, take the first option
+    """
+    if isinstance(schema, dict):
+        # Handle anyOf (Pydantic uses this for Optional types)
+        if "anyOf" in schema:
+            options = schema["anyOf"]
+            # Filter out null types
+            non_null_options = [
+                opt for opt in options
+                if not (isinstance(opt, dict) and opt.get("type") == "null")
+            ]
+            
+            if len(non_null_options) == 1:
+                # Optional field - use the non-null type
+                result = simplify_union_types(non_null_options[0])
+            elif len(non_null_options) > 1:
+                # Union type - take the first option
+                result = simplify_union_types(non_null_options[0])
+            else:
+                # Only null options - make it a string
+                result = {"type": "string"}
+            
+            # Preserve other fields from the original schema
+            for key, value in schema.items():
+                if key != "anyOf" and key not in result:
+                    result[key] = simplify_union_types(value)
+            
+            return result
+        
+        # Handle oneOf similarly
+        if "oneOf" in schema:
+            options = schema["oneOf"]
+            non_null_options = [
+                opt for opt in options
+                if not (isinstance(opt, dict) and opt.get("type") == "null")
+            ]
+            
+            if non_null_options:
+                result = simplify_union_types(non_null_options[0])
+            else:
+                result = {"type": "string"}
+            
+            for key, value in schema.items():
+                if key != "oneOf" and key not in result:
+                    result[key] = simplify_union_types(value)
+            
+            return result
+        
+        # Handle allOf by merging all schemas
+        if "allOf" in schema:
+            merged = {}
+            for sub_schema in schema["allOf"]:
+                simplified = simplify_union_types(sub_schema)
+                if isinstance(simplified, dict):
+                    merged.update(simplified)
+            
+            for key, value in schema.items():
+                if key != "allOf":
+                    merged[key] = simplify_union_types(value)
+            
+            return merged
+        
+        # Regular object - process recursively
+        result = {}
+        for key, value in schema.items():
+            result[key] = simplify_union_types(value)
+        return result
+    
+    elif isinstance(schema, list):
+        return [simplify_union_types(item) for item in schema]
+    else:
+        return schema
+
+
 def remove_unsupported_fields(schema: Any) -> Any:
     """Recursively remove fields that Gemini doesn't support in schemas"""
     if isinstance(schema, dict):
         result = {}
         for key, value in schema.items():
-            if key in GEMINI_UNSUPPORTED_FIELDS:
+            if key in GEMINI_REMOVABLE_FIELDS:
+                continue
+            # additionalProperties should be removed
+            if key == "additionalProperties":
                 continue
             result[key] = remove_unsupported_fields(value)
         return result
@@ -71,7 +158,10 @@ def clean_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
     if defs:
         schema = inline_refs(schema, defs)
     
-    # Step 2: Remove unsupported fields
+    # Step 2: Simplify union types (anyOf, oneOf, allOf)
+    schema = simplify_union_types(schema)
+    
+    # Step 3: Remove unsupported fields
     schema = remove_unsupported_fields(schema)
     
     return schema
