@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     Configuraciones de la aplicación cargadas desde el entorno.
     """
     APP_NAME: str = "API de Planificación Curricular"
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    # Support both GEMINI_API_KEY and GOOGLE_API_KEY for flexibility
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
     
     # --- JWT Settings ---
     # Para generar una buena clave secreta, puedes usar: openssl rand -hex 32
