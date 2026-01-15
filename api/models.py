@@ -118,7 +118,7 @@ class AssessmentCriteria(BaseModel):
     """Assessment criteria for evaluating learning"""
     criterion_id: str = Field(..., description="Unique identifier")
     description: str = Field(..., description="What is being assessed")
-    levels: dict = Field(..., description="Performance levels (e.g., beginning, developing, proficient)")
+    levels: str = Field(..., description="Performance levels as text (e.g., 'Logrado: ..., En desarrollo: ..., Inicial: ...')")
     weight: float = Field(default=1.0, description="Weight in overall assessment")
 
 class LessonSection(BaseModel):
