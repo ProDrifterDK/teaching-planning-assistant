@@ -149,6 +149,59 @@ def remove_unsupported_fields(schema: Any) -> Any:
         return schema
 
 
+def fix_required_fields(schema: Any) -> Any:
+    """Remove required fields that reference non-existent properties"""
+    if isinstance(schema, dict):
+        result = {}
+        for key, value in schema.items():
+            result[key] = fix_required_fields(value)
+        
+        # If this is an object type with required fields, validate them
+        if result.get("type") == "object" and "required" in result:
+            properties = result.get("properties", {})
+            valid_required = [
+                field for field in result["required"]
+                if field in properties
+            ]
+            if valid_required:
+                result["required"] = valid_required
+            else:
+                # Remove empty required array
+                del result["required"]
+        
+        return result
+    elif isinstance(schema, list):
+        return [fix_required_fields(item) for item in schema]
+    else:
+        return schema
+
+
+def fix_empty_objects(schema: Any) -> Any:
+    """
+    Fix OBJECT types with empty properties.
+    Gemini requires non-empty properties for OBJECT type.
+    Convert them to string type or add a placeholder.
+    """
+    if isinstance(schema, dict):
+        result = {}
+        for key, value in schema.items():
+            result[key] = fix_empty_objects(value)
+        
+        # If this is an object type, ensure it has properties
+        if result.get("type") == "object":
+            properties = result.get("properties", {})
+            if not properties or len(properties) == 0:
+                # Convert empty object to a simple string type
+                # This handles things like Dict[str, Any] which Gemini can't handle
+                return {"type": "string"}
+        
+        return result
+    elif isinstance(schema, list):
+        return [fix_empty_objects(item) for item in schema]
+    else:
+        return schema
+
+
 def clean_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
     """Clean a JSON schema to be compatible with Gemini's structured output"""
     schema = copy.deepcopy(schema)
@@ -163,5 +216,11 @@ def clean_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
     
     # Step 3: Remove unsupported fields
     schema = remove_unsupported_fields(schema)
+    
+    # Step 4: Fix required fields that reference non-existent properties
+    schema = fix_required_fields(schema)
+    
+    # Step 5: Fix empty OBJECT types
+    schema = fix_empty_objects(schema)
     
     return schema
