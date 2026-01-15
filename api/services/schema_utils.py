@@ -131,20 +131,35 @@ def simplify_union_types(schema: Any) -> Any:
         return schema
 
 
-def remove_unsupported_fields(schema: Any) -> Any:
-    """Recursively remove fields that Gemini doesn't support in schemas"""
+def remove_unsupported_fields(schema: Any, is_inside_properties: bool = False) -> Any:
+    """
+    Recursively remove fields that Gemini doesn't support in schemas.
+    
+    NOTE: Only remove annotation fields (like 'title', 'description') when they are
+    schema annotations, NOT when they are actual property names inside 'properties'.
+    """
     if isinstance(schema, dict):
         result = {}
         for key, value in schema.items():
-            if key in GEMINI_REMOVABLE_FIELDS:
-                continue
-            # additionalProperties should be removed
-            if key == "additionalProperties":
-                continue
-            result[key] = remove_unsupported_fields(value)
+            # If we're inside "properties", keys are field NAMES - never remove them
+            if is_inside_properties:
+                # Process nested values, but mark we're no longer directly in properties
+                result[key] = remove_unsupported_fields(value, is_inside_properties=False)
+            else:
+                # We're at schema level - here 'title', 'description' are annotations to remove
+                if key in GEMINI_REMOVABLE_FIELDS:
+                    continue
+                # additionalProperties should be removed
+                if key == "additionalProperties":
+                    continue
+                # When entering "properties", mark that keys are field names
+                if key == "properties":
+                    result[key] = remove_unsupported_fields(value, is_inside_properties=True)
+                else:
+                    result[key] = remove_unsupported_fields(value, is_inside_properties=False)
         return result
     elif isinstance(schema, list):
-        return [remove_unsupported_fields(item) for item in schema]
+        return [remove_unsupported_fields(item, is_inside_properties=False) for item in schema]
     else:
         return schema
 
