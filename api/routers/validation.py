@@ -53,7 +53,7 @@ async def validate_content(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.0-flash-exp",
+                "model": "gemini-2.5-pro",
                 "validation_level": request.validation_level,
                 "content_type": request.content_type.value,
                 "checks_performed": result.total_checks,

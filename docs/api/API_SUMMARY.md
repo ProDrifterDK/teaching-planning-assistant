@@ -38,7 +38,7 @@ All endpoints return:
     "requested_at": "2024-01-01T00:00:00Z",
     "completed_at": "2024-01-01T00:00:01Z",
     "duration_ms": 1000,
-    "model": "gemini-2.0-flash-exp"
+    "model": "gemini-2.5-pro"
   },
   "error": null
 }

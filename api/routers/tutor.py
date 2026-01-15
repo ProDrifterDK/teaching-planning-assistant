@@ -69,7 +69,7 @@ async def tutor_chat(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": int((end_time - start_time).total_seconds() * 1000),
-                "model": "gemini-2.0-flash-exp",
+                "model": "gemini-2.5-pro",
                 "tutor_role": request.tutor_role.value,
                 "response_style": request.response_style
             },

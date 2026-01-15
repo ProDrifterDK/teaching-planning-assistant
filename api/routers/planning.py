@@ -100,7 +100,7 @@ async def generate_structured_plan(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.5-flash",
+                "model": "gemini-2.5-pro",
                 "generation_mode": generation_mode,
                 "oas_used": request.oa_ids if generation_mode == "oa_based" else [],
                 "topic": request.topic if generation_mode == "topic_based" else None,

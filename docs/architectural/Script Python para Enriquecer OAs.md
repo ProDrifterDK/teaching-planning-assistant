@@ -335,7 +335,7 @@ client \= genai.Client(api\_key="TU\_CLAVE\_DE\_API\_AQUI")
 
 \# Ejemplo de uso  
 response \= client.generate\_content(  
-  model="gemini-2.5-flash",  
+  model="gemini-2.5-pro",  
   contents="Explica cómo funciona la IA en pocas palabras"  
 )  
 print(response.text)
