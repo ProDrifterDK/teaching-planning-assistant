@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from api.routers import health
 from api.middleware.rate_limit import RateLimitMiddleware
 
-from .routers import admin, auth, curriculum, planning, export, apikeys, content, validation, batch, tutor
+from .routers import admin, auth, curriculum, planning, export, apikeys, content, validation, batch, tutor, revision
 from .db.session import engine, SessionLocal
 from .db import models as db_models, user_crud
 from .db.apikey_crud import create_service_client, list_service_clients, hash_api_key
@@ -146,6 +146,7 @@ app.include_router(content.router)
 app.include_router(validation.router)
 app.include_router(batch.router)
 app.include_router(tutor.router)
+app.include_router(revision.router)
 
 @app.get("/", tags=["General"])
 def read_root():

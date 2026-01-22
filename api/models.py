@@ -1056,3 +1056,26 @@ class PlanningLogDetailResponse(PlanningLogResponse):
     thought_tokens: int
     plan_request_data: PlanRequest
     plan_markdown: str
+
+# --- Modelos para Revisión de Contenido ---
+
+class RevisionOptions(BaseModel):
+    simplify_vocabulary: bool = Field(default=False, description="Simplify vocabulary for the target grade level")
+    add_examples: bool = Field(default=False, description="Add more examples to explain concepts")
+    shorten_content: bool = Field(default=False, description="Make the content more concise")
+    add_accessibility: bool = Field(default=False, description="Add accessibility features like visual cues")
+
+class ContentRevisionRequest(BaseModel):
+    original_content: Dict[str, Any] = Field(..., description="The original content to revise (e.g. {'quiz': {...}})")
+    content_type: str = Field(..., description="Type of content: quiz, lesson, assessment, etc.")
+    feedback: str = Field(..., description="Teacher's specific feedback for revision")
+    revision_options: RevisionOptions = Field(default_factory=RevisionOptions, description="Boolean flags for common revision tasks")
+    grade_level: str = Field(..., description="Target grade level")
+    subject: str = Field(..., description="Subject area")
+
+class ContentRevisionResponse(BaseModel):
+    success: bool = Field(..., description="Whether revision succeeded")
+    revised_content: Optional[Dict[str, Any]] = Field(None, description="The revised content structure")
+    changes_summary: Optional[str] = Field(None, description="Summary of changes made")
+    revision_metadata: dict = Field(..., description="Metadata about the revision process")
+    error: Optional[str] = Field(None, description="Error message if failed")
