@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
+from typing import Optional, Literal
 
 from api.db.session import get_db
 from api.core.security import get_current_user_or_client
@@ -12,8 +13,15 @@ from api.models import (
     GenerateReinforcementRequest, GenerateReinforcementResponse,
     GenerateSummaryRequest, GenerateSummaryResponse
 )
+from api.models.student_content import (
+    PathwayGenerationRequest, PathwayGenerationResponse,
+    QuizGenerationRequest as InteractiveQuizRequest, QuizGenerationResponse as InteractiveQuizResponse,
+    MisconceptionAnalysisRequest, MisconceptionAnalysisResponse,
+    AdaptiveRecommendationResponse, GenerationMetadata
+)
 from api.services.content_generation_service import content_generation_service
 from api.services.curriculum_service import curriculum_service
+from api.services.student_content_service import student_content_service
 
 router = APIRouter(prefix="/api/v1/content", tags=["Content Generation"])
 
@@ -408,3 +416,215 @@ async def generate_summary(
             generation_metadata={"requested_at": start_time.isoformat()},
             error=str(e)
         )
+
+
+@router.post(
+    "/generate-pathway",
+    response_model=PathwayGenerationResponse,
+    summary="Generate learning pathway structure",
+    description="Generates a complete Mission-based learning pathway for a curriculum unit",
+    tags=["Student Content Delivery"]
+)
+async def generate_pathway(
+    request: PathwayGenerationRequest,
+    auth = Depends(get_current_user_or_client),
+    db: AsyncSession = Depends(get_db)
+) -> PathwayGenerationResponse:
+    """
+    Generate a structured learning pathway with:
+    - Mission metaphor (adventure, mystery, building, discovery, quest)
+    - Multiple chapters organized by learning objectives
+    - Node sequences (hook → lesson → activity → quiz → checkpoint)
+    - Side quests for enrichment
+    - Gamification rewards (XP, badges)
+    - UDL adaptations and differentiation
+    
+    Authentication: JWT token OR API Key (with content:generate permission)
+    """
+    start_time = datetime.utcnow()
+    
+    try:
+        curriculum_data = {'oas': []}
+        
+        if request.oa_codes:
+            curriculum_data = await curriculum_service.get_oas_by_ids(
+                db, request.oa_codes, str(request.grade_level), request.subject
+            )
+        
+        if not curriculum_data.get('oas'):
+            for oa_code in request.oa_codes:
+                curriculum_data['oas'].append({
+                    'codigo': oa_code,
+                    'descripcion': f'Objetivo de Aprendizaje {oa_code}',
+                    'eje': request.subject,
+                    'habilidades': [],
+                    'actitudes': []
+                })
+        
+        response = await student_content_service.generate_pathway(request, curriculum_data)
+        return response
+        
+    except Exception as e:
+        return PathwayGenerationResponse(
+            success=False,
+            pathway=None,
+            metadata=GenerationMetadata(
+                generation_time_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000)
+            ),
+            error=str(e)
+        )
+
+
+@router.post(
+    "/generate-interactive-quiz",
+    response_model=InteractiveQuizResponse,
+    summary="Generate interactive quiz with multiple question types",
+    description="Generates a quiz with 9 question types, confidence tracking, and NEE adaptations",
+    tags=["Student Content Delivery"]
+)
+async def generate_interactive_quiz(
+    request: InteractiveQuizRequest,
+    auth = Depends(get_current_user_or_client),
+    db: AsyncSession = Depends(get_db)
+) -> InteractiveQuizResponse:
+    """
+    Generate interactive quiz supporting 9 question types:
+    - multiple_choice: Single correct answer
+    - multiple_select: Multiple correct answers
+    - true_false: Boolean questions
+    - matching: Connect pairs
+    - ordering: Sequence items
+    - fill_in_blank: Complete sentences
+    - short_answer: Free text (short)
+    - drag_drop: Drag items to zones
+    - image_hotspot: Click on image areas
+    
+    Features:
+    - Confidence-based assessment
+    - UDL adaptations
+    - NEE-specific versions
+    - Spaced repetition support
+    
+    Authentication: JWT token OR API Key (with content:generate permission)
+    """
+    start_time = datetime.utcnow()
+    
+    try:
+        curriculum_data = {'oas': [], 'subject': request.subject or ''}
+        
+        if request.oa_codes:
+            curriculum_data = await curriculum_service.get_oas_by_ids(
+                db, request.oa_codes, request.curso, request.subject or ''
+            )
+        
+        if not curriculum_data.get('oas'):
+            if request.topic:
+                curriculum_data = {
+                    'oas': [{
+                        'codigo': f'TOPIC_{request.topic[:20].upper().replace(" ", "_")}',
+                        'descripcion': f'Contenido basado en el tema: {request.topic}',
+                        'eje': request.subject or '',
+                        'habilidades': ['Comprender', 'Aplicar', 'Analizar'],
+                        'actitudes': []
+                    }],
+                    'topic': request.topic,
+                    'subject': request.subject or '',
+                    'is_topic_based': True
+                }
+            elif request.oa_codes:
+                for oa_code in request.oa_codes:
+                    curriculum_data['oas'].append({
+                        'codigo': oa_code,
+                        'descripcion': f'Objetivo de Aprendizaje {oa_code}',
+                        'eje': request.subject or '',
+                        'habilidades': [],
+                        'actitudes': []
+                    })
+            else:
+                return InteractiveQuizResponse(
+                    success=False,
+                    quiz=None,
+                    metadata=GenerationMetadata(
+                        generation_time_ms=0
+                    ),
+                    error="No valid OA codes or topic provided"
+                )
+        
+        response = await student_content_service.generate_interactive_quiz(request, curriculum_data)
+        return response
+        
+    except Exception as e:
+        return InteractiveQuizResponse(
+            success=False,
+            quiz=None,
+            metadata=GenerationMetadata(
+                generation_time_ms=int((datetime.utcnow() - start_time).total_seconds() * 1000)
+            ),
+            error=str(e)
+        )
+
+
+@router.get(
+    "/adaptive-next",
+    response_model=AdaptiveRecommendationResponse,
+    summary="Get adaptive content recommendations",
+    description="Returns personalized next content recommendations for a student",
+    tags=["Student Content Delivery"]
+)
+async def get_adaptive_next(
+    student_id: str = Query(..., description="Student identifier"),
+    current_pathway_id: Optional[str] = Query(None, description="Focus on specific pathway"),
+    context_type: Literal['continue', 'review', 'explore', 'remedial'] = Query(
+        'continue',
+        description="Type of recommendations to prioritize"
+    ),
+    limit: int = Query(10, ge=1, le=20, description="Maximum recommendations"),
+    auth = Depends(get_current_user_or_client),
+    db: AsyncSession = Depends(get_db)
+) -> AdaptiveRecommendationResponse:
+    """
+    Analyzes student progress and returns prioritized content recommendations.
+    
+    Context types:
+    - continue: Next content in active pathway
+    - review: Spaced repetition items due for review
+    - explore: New content matching interests/strengths
+    - remedial: Content addressing identified weak areas
+    
+    Authentication: JWT token OR API Key
+    """
+    response = await student_content_service.get_adaptive_recommendations(
+        student_id=student_id,
+        current_pathway_id=current_pathway_id,
+        context_type=context_type,
+        limit=limit
+    )
+    return response
+
+
+@router.post(
+    "/detect-misconceptions",
+    response_model=MisconceptionAnalysisResponse,
+    summary="Detect misconceptions from quiz responses",
+    description="Analyzes wrong answers to identify conceptual gaps and suggest remediation",
+    tags=["Student Content Delivery"]
+)
+async def detect_misconceptions(
+    request: MisconceptionAnalysisRequest,
+    auth = Depends(get_current_user_or_client),
+    db: AsyncSession = Depends(get_db)
+) -> MisconceptionAnalysisResponse:
+    """
+    Detect misconceptions from student quiz responses.
+    
+    The analysis uses Gemini to:
+    1. Examine each wrong answer in context
+    2. Identify the underlying misconception
+    3. Cross-reference with common misconception patterns
+    4. Suggest targeted remediation
+    5. Determine if teacher notification is needed
+    
+    Authentication: JWT token OR API Key
+    """
+    response = await student_content_service.analyze_misconceptions(request)
+    return response
