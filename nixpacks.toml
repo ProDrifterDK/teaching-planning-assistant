@@ -4,8 +4,8 @@ nixLibs = ["glib", "gobject-introspection", "cairo", "pango", "gdk-pixbuf", "har
 
 [phases.install]
 cmds = [
-    "python -m venv /app/venv",
-    "/app/venv/bin/pip install --upgrade pip",
+    "python -m venv /app/venv --clear",
+    "/app/venv/bin/pip install --upgrade pip setuptools wheel",
     "/app/venv/bin/pip install --no-cache-dir -r requirements.txt"
 ]
 
