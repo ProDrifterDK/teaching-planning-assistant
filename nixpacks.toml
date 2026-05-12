@@ -6,7 +6,7 @@ nixLibs = ["glib", "gobject-introspection", "cairo", "pango", "gdk-pixbuf", "har
 cmds = [
     "python -m venv /app/venv",
     "/app/venv/bin/pip install --upgrade pip",
-    "/app/venv/bin/pip install -r requirements.txt"
+    "/app/venv/bin/pip install --no-cache-dir -r requirements.txt"
 ]
 
 [start]
