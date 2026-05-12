@@ -18,3 +18,4 @@ weasyprint
 httpx>=0.25.0
 psutil>=5.9.0
 aiosqlite
+mcp>=1.0.0
