@@ -3,7 +3,7 @@
 
 if [ "$SERVICE_TYPE" = "mcp" ]; then
     echo "=== MCP: Installing mcp package ==="
-    /app/venv/bin/pip install mcp>=1.0.0
+    /app/venv/bin/pip install 'mcp>=1.26.0'
     echo "=== MCP: Starting server ==="
     exec /app/venv/bin/python mcp_server.py
 else

@@ -4,7 +4,7 @@
 Deployed as a Railway service alongside the TPA API.
 Exposes curriculum data via MCP SSE/HTTP protocol.
 
-Transport: SSE (Server-Sent Events)
+Transports: SSE (legacy) and Streamable HTTP
 Default port: $PORT (Railway) or 8001 (local)
 
 Data source: data/processed/structured_data_enriched.json (in-repo)
@@ -18,8 +18,12 @@ import os
 import sys
 import json
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
+
+import uvicorn
+from starlette.applications import Starlette
 
 # ---------------------------------------------------------------------------
 # Data Layer (embedded — no external deps beyond stdlib + mcp)
@@ -191,6 +195,7 @@ mcp = FastMCP(
     port=PORT,
     sse_path="/sse",
     message_path="/messages/",
+    streamable_http_path="/mcp",
     json_response=True,
 )
 
@@ -255,6 +260,39 @@ def curriculum_stats() -> str:
 # Entry point
 # ---------------------------------------------------------------------------
 
+
+def create_app() -> Starlette:
+    """Create an ASGI app exposing both MCP HTTP transports.
+
+    Railway's edge can periodically close long-lived SSE/TLS streams. Keeping
+    the legacy SSE routes preserves existing clients while `/mcp` gives modern
+    clients a Streamable HTTP endpoint that does not require a permanent SSE
+    connection.
+    """
+    sse_app = mcp.sse_app()
+    streamable_app = mcp.streamable_http_app()
+
+    @asynccontextmanager
+    async def lifespan(app: Starlette):
+        async with mcp.session_manager.run():
+            yield
+
+    return Starlette(
+        debug=mcp.settings.debug,
+        routes=[
+            *sse_app.routes,
+            *streamable_app.routes,
+        ],
+        lifespan=lifespan,
+    )
+
+
 if __name__ == "__main__":
-    log.info("TPA Curriculum MCP → http://%s:%s/sse", HOST, PORT)
-    mcp.run(transport="sse")
+    log.info(
+        "TPA Curriculum MCP → SSE http://%s:%s/sse + Streamable HTTP http://%s:%s/mcp",
+        HOST,
+        PORT,
+        HOST,
+        PORT,
+    )
+    uvicorn.run(create_app(), host=HOST, port=PORT, log_level=mcp.settings.log_level.lower())
