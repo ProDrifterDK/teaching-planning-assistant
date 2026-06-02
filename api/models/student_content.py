@@ -172,7 +172,7 @@ class GeneratedPathway(BaseModel):
 
 
 class GenerationMetadata(BaseModel):
-    model: str = "gemini-2.5-pro"
+    model: str = "deepseek-v4-flash"
     tokens_input: int = 0
     tokens_output: int = 0
     tokens_thinking: int = 0

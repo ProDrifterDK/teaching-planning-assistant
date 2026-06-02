@@ -2,7 +2,7 @@ import copy
 from typing import Any, Dict
 
 # Simple fields that can be removed without breaking the schema
-GEMINI_REMOVABLE_FIELDS = {
+JSON_SCHEMA_REMOVABLE_FIELDS = {
     "title",
     "description",
     "examples",
@@ -133,7 +133,7 @@ def simplify_union_types(schema: Any) -> Any:
 
 def remove_unsupported_fields(schema: Any, is_inside_properties: bool = False) -> Any:
     """
-    Recursively remove fields that Gemini doesn't support in schemas.
+    Recursively remove fields that lightweight JSON-mode providers often reject.
     
     NOTE: Only remove annotation fields (like 'title', 'description') when they are
     schema annotations, NOT when they are actual property names inside 'properties'.
@@ -147,7 +147,7 @@ def remove_unsupported_fields(schema: Any, is_inside_properties: bool = False) -
                 result[key] = remove_unsupported_fields(value, is_inside_properties=False)
             else:
                 # We're at schema level - here 'title', 'description' are annotations to remove
-                if key in GEMINI_REMOVABLE_FIELDS:
+                if key in JSON_SCHEMA_REMOVABLE_FIELDS:
                     continue
                 # additionalProperties should be removed
                 if key == "additionalProperties":
@@ -194,7 +194,7 @@ def fix_required_fields(schema: Any) -> Any:
 def fix_empty_objects(schema: Any) -> Any:
     """
     Fix OBJECT types with empty properties.
-    Gemini requires non-empty properties for OBJECT type.
+    Some structured-output providers reject empty OBJECT schemas.
     Convert them to string type or add a placeholder.
     """
     if isinstance(schema, dict):
@@ -207,7 +207,7 @@ def fix_empty_objects(schema: Any) -> Any:
             properties = result.get("properties", {})
             if not properties or len(properties) == 0:
                 # Convert empty object to a simple string type
-                # This handles things like Dict[str, Any] which Gemini can't handle
+                # This handles things like Dict[str, Any] which schema-constrained providers can't handle
                 return {"type": "string"}
         
         return result
@@ -217,8 +217,8 @@ def fix_empty_objects(schema: Any) -> Any:
         return schema
 
 
-def clean_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
-    """Clean a JSON schema to be compatible with Gemini's structured output"""
+def clean_schema_for_llm(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """Clean a JSON schema for compact prompt/schema guidance."""
     schema = copy.deepcopy(schema)
     
     # Step 1: Inline $refs
@@ -239,3 +239,8 @@ def clean_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
     schema = fix_empty_objects(schema)
     
     return schema
+
+
+# Backwards-compatible alias for older imports/tests.
+def clean_schema_for_gemini(schema: Dict[str, Any]) -> Dict[str, Any]:
+    return clean_schema_for_llm(schema)

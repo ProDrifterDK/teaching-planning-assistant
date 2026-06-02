@@ -1,5 +1,6 @@
+import json
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
 from api.models.student_content import (
@@ -18,16 +19,29 @@ from api.models.student_content import (
     ConfidenceLevel,
     GenerationMetadata,
 )
+from api.services.ai_adapter import AIJsonResult, AIUsage
 from api.services.student_content_service import StudentContentService
+
+
+class FakeAdapter:
+    def __init__(self):
+        self.payload = {}
+        self.usage = AIUsage(prompt_tokens=100, completion_tokens=200)
+        self.calls = []
+
+    async def generate_json(self, prompt, **kwargs):
+        self.calls.append({"prompt": prompt, **kwargs})
+        return AIJsonResult(
+            data=self.payload,
+            raw_text=json.dumps(self.payload),
+            model="deepseek-v4-flash",
+            usage=self.usage,
+        )
 
 
 @pytest.fixture
 def student_content_service():
-    with patch("api.services.student_content_service.genai") as mock_genai:
-        mock_genai.configure = MagicMock()
-        mock_genai.GenerativeModel = MagicMock()
-        service = StudentContentService()
-        yield service
+    return StudentContentService(adapter=FakeAdapter())
 
 
 @pytest.fixture
@@ -276,15 +290,14 @@ class TestAdaptiveRecommendations:
 class TestServiceIntegration:
     @pytest.mark.asyncio
     async def test_generate_pathway_mocked(self, student_content_service, sample_curriculum_data):
-        mock_response = MagicMock()
-        mock_response.text = """{
+        student_content_service.adapter.payload = {
             "title": "Descubriendo las Fracciones",
             "description": "Una aventura matemática",
             "mission_metaphor": {
                 "name": "El Explorador",
                 "icon": "🗺️",
                 "narrative": "Embárcate en una aventura",
-                "theme": "discovery"
+                "theme": "discovery",
             },
             "chapters": [],
             "total_nodes": 0,
@@ -292,18 +305,14 @@ class TestServiceIntegration:
             "estimated_total_minutes": 180,
             "rewards": {
                 "xp_on_complete": 500,
-                "certificate_eligible": true
+                "certificate_eligible": True,
             },
             "suggested_prerequisites": {
                 "oa_codes": [],
-                "minimum_mastery": 70
-            }
-        }"""
-        mock_response.usage_metadata = MagicMock()
-        mock_response.usage_metadata.prompt_token_count = 100
-        mock_response.usage_metadata.candidates_token_count = 200
-        
-        student_content_service.model.generate_content_async = AsyncMock(return_value=mock_response)
+                "minimum_mastery": 70,
+            },
+        }
+        student_content_service.adapter.usage = AIUsage(prompt_tokens=100, completion_tokens=200)
         
         request = PathwayGenerationRequest(
             grade_level=5,
@@ -320,8 +329,7 @@ class TestServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_generate_quiz_mocked(self, student_content_service, sample_curriculum_data):
-        mock_response = MagicMock()
-        mock_response.text = """{
+        student_content_service.adapter.payload = {
             "id": "quiz_001",
             "title": "Quiz de Fracciones",
             "type": "formative",
@@ -336,27 +344,23 @@ class TestServiceIntegration:
                     "order": 1,
                     "stem": "¿Cuál es el numerador de 3/4?",
                     "options": [
-                        {"id": "a", "text": "3", "is_correct": true},
-                        {"id": "b", "text": "4", "is_correct": false}
+                        {"id": "a", "text": "3", "is_correct": True},
+                        {"id": "b", "text": "4", "is_correct": False},
                     ],
                     "correct_answer": {"type": "exact", "value": "a"},
                     "points": 10,
                     "difficulty": "easy",
                     "skill": "Identificación",
-                    "confidence_enabled": true,
+                    "confidence_enabled": True,
                     "feedback": {
                         "correct": "¡Correcto!",
-                        "incorrect": "Incorrecto"
+                        "incorrect": "Incorrecto",
                     },
-                    "accessibility": {}
+                    "accessibility": {},
                 }
-            ]
-        }"""
-        mock_response.usage_metadata = MagicMock()
-        mock_response.usage_metadata.prompt_token_count = 150
-        mock_response.usage_metadata.candidates_token_count = 300
-        
-        student_content_service.model.generate_content_async = AsyncMock(return_value=mock_response)
+            ],
+        }
+        student_content_service.adapter.usage = AIUsage(prompt_tokens=150, completion_tokens=300)
         
         request = QuizGenerationRequest(
             curso="5° Básico",
@@ -372,8 +376,7 @@ class TestServiceIntegration:
 
     @pytest.mark.asyncio
     async def test_analyze_misconceptions_mocked(self, student_content_service):
-        mock_response = MagicMock()
-        mock_response.text = """{
+        student_content_service.adapter.payload = {
             "quiz_id": "quiz_001",
             "student_id": "student_123",
             "total_wrong_answers": 1,
@@ -385,18 +388,16 @@ class TestServiceIntegration:
                     "affected_question_ids": ["q_001"],
                     "confidence_score": 0.85,
                     "severity": "medium",
-                    "is_persistent": false,
-                    "category": "conceptual_error"
+                    "is_persistent": False,
+                    "category": "conceptual_error",
                 }
             ],
             "remediation_suggestions": [],
             "overall_understanding_score": 0.6,
             "knowledge_gaps": ["Identificación de numerador"],
             "strengths_identified": [],
-            "next_steps": ["Revisar conceptos básicos"]
-        }"""
-        
-        student_content_service.model.generate_content_async = AsyncMock(return_value=mock_response)
+            "next_steps": ["Revisar conceptos básicos"],
+        }
         
         wrong_answers = [
             WrongAnswer(

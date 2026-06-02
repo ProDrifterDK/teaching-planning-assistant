@@ -5,6 +5,7 @@ import uuid
 
 from api.db.session import get_db
 from api.core.security import get_current_user_or_client
+from api.core.config import settings
 from api.models import TutorChatRequest, TutorChatResponse
 from api.services.content_generation_service import content_generation_service
 from api.services.curriculum_service import curriculum_service
@@ -69,7 +70,7 @@ async def tutor_chat(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": int((end_time - start_time).total_seconds() * 1000),
-                "model": "gemini-2.5-pro",
+                "model": settings.AI_MODEL,
                 "tutor_role": request.tutor_role.value,
                 "response_style": request.response_style
             },

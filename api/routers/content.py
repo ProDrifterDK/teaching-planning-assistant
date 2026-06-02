@@ -5,6 +5,7 @@ from typing import Optional, Literal
 
 from api.db.session import get_db
 from api.core.security import get_current_user_or_client
+from api.core.config import settings
 from api.models import (
     GenerateQuizRequest, GenerateQuizResponse,
     AdaptContentRequest, AdaptContentResponse,
@@ -59,7 +60,7 @@ async def adapt_content(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.5-pro",
+                "model": settings.AI_MODEL,
                 "nee_types": [nee.value for nee in request.nee_types],
                 "adaptation_level": request.adaptation_level.value,
                 "content_type": request.content_type.value
@@ -149,7 +150,7 @@ async def generate_quiz(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.5-pro",
+                "model": settings.AI_MODEL,
                 "generation_mode": generation_mode,
                 "oas_used": request.oa_ids if generation_mode == "oa_based" else [],
                 "topic": request.topic if generation_mode == "topic_based" else None,
@@ -216,7 +217,7 @@ async def generate_activity(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.5-pro",
+                "model": settings.AI_MODEL,
                 "oas_used": request.oa_ids,
                 "activity_type": request.activity_type.value if request.activity_type else "auto"
             },
@@ -280,7 +281,7 @@ async def generate_exam(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.5-pro",
+                "model": settings.AI_MODEL,
                 "oas_used": request.oa_ids,
                 "total_points": exam.total_points
             },
@@ -345,7 +346,7 @@ async def generate_reinforcement(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.5-pro",
+                "model": settings.AI_MODEL,
                 "oas_used": request.oa_ids,
                 "num_materials": len(plan.materials)
             },
@@ -617,7 +618,7 @@ async def detect_misconceptions(
     """
     Detect misconceptions from student quiz responses.
     
-    The analysis uses Gemini to:
+    The analysis uses the configured AI provider to:
     1. Examine each wrong answer in context
     2. Identify the underlying misconception
     3. Cross-reference with common misconception patterns

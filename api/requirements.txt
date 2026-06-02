@@ -1,6 +1,5 @@
 fastapi
 uvicorn[standard]
-google-genai
 python-dotenv
 pydantic-settings
 passlib[bcrypt]
@@ -16,4 +15,4 @@ weasyprint
 httpx>=0.25.0
 psutil>=5.9.0
 aiosqlite
-mcp>=1.0.0
+mcp>=1.26.0
