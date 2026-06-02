@@ -1,4 +1,3 @@
-import google.generativeai as genai
 from api.core.config import settings
 from api.models.student_content import (
     PathwayGenerationRequest,
@@ -24,7 +23,8 @@ from api.prompts.student_content_prompts import (
     MISCONCEPTION_ANALYSIS_PROMPT,
     ADAPTIVE_RECOMMENDATION_PROMPT,
 )
-from api.services.schema_utils import clean_schema_for_gemini
+from api.services.schema_utils import clean_schema_for_llm
+from api.services.ai_adapter import DeepSeekAIAdapter, ai_adapter
 import json
 import uuid
 import time
@@ -34,9 +34,16 @@ from datetime import datetime
 
 class StudentContentService:
 
-    def __init__(self):
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel("gemini-2.5-pro")
+    def __init__(self, adapter: Optional[DeepSeekAIAdapter] = None):
+        self.adapter = adapter or ai_adapter
+
+    async def _generate_json(self, prompt: str, response_model) -> tuple[dict, Any]:
+        result = await self.adapter.generate_json(
+            prompt,
+            schema=clean_schema_for_llm(response_model.model_json_schema()),
+            max_tokens=settings.AI_MAX_OUTPUT_TOKENS,
+        )
+        return result.data, result.usage
 
     async def generate_pathway(
         self, request: PathwayGenerationRequest, curriculum_data: dict
@@ -85,30 +92,17 @@ Incluir para cada nodo:
                 differentiation_text=differentiation_text,
             )
 
-            generation_config = genai.GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=clean_schema_for_gemini(
-                    GeneratedPathway.model_json_schema()
-                ),
-            )
-
-            response = await self.model.generate_content_async(
-                prompt, generation_config=generation_config
-            )
-
-            pathway_data = json.loads(response.text)
+            pathway_data, usage = await self._generate_json(prompt, GeneratedPathway)
             pathway = GeneratedPathway(**pathway_data)
 
             end_time = time.time()
             generation_time_ms = int((end_time - start_time) * 1000)
 
-            tokens_input = response.usage_metadata.prompt_token_count if hasattr(response, 'usage_metadata') else 0
-            tokens_output = response.usage_metadata.candidates_token_count if hasattr(response, 'usage_metadata') else 0
-
             metadata = GenerationMetadata(
-                model="gemini-2.5-pro",
-                tokens_input=tokens_input,
-                tokens_output=tokens_output,
+                model=settings.AI_MODEL,
+                tokens_input=usage.prompt_tokens,
+                tokens_output=usage.completion_tokens,
+                tokens_thinking=usage.reasoning_tokens,
                 generation_time_ms=generation_time_ms,
                 prompt_version="pathway_v1.0",
             )
@@ -183,18 +177,7 @@ Generar adaptaciones para: {nee_list}
                 nee_adaptations_text=nee_adaptations_text,
             )
 
-            generation_config = genai.GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=clean_schema_for_gemini(
-                    InteractiveQuiz.model_json_schema()
-                ),
-            )
-
-            response = await self.model.generate_content_async(
-                prompt, generation_config=generation_config
-            )
-
-            quiz_data = json.loads(response.text)
+            quiz_data, usage = await self._generate_json(prompt, InteractiveQuiz)
 
             if "id" not in quiz_data or not quiz_data["id"]:
                 quiz_data["id"] = f"quiz_{uuid.uuid4().hex[:8]}"
@@ -206,13 +189,11 @@ Generar adaptaciones para: {nee_list}
             end_time = time.time()
             generation_time_ms = int((end_time - start_time) * 1000)
 
-            tokens_input = response.usage_metadata.prompt_token_count if hasattr(response, 'usage_metadata') else 0
-            tokens_output = response.usage_metadata.candidates_token_count if hasattr(response, 'usage_metadata') else 0
-
             metadata = GenerationMetadata(
-                model="gemini-2.5-pro",
-                tokens_input=tokens_input,
-                tokens_output=tokens_output,
+                model=settings.AI_MODEL,
+                tokens_input=usage.prompt_tokens,
+                tokens_output=usage.completion_tokens,
+                tokens_thinking=usage.reasoning_tokens,
                 generation_time_ms=generation_time_ms,
                 prompt_version="quiz_v1.0",
             )
@@ -532,18 +513,7 @@ Acomodaciones: {', '.join(request.student_nee_profile.accommodations) if request
                 language="español" if request.language == "es" else "inglés",
             )
 
-            generation_config = genai.GenerationConfig(
-                response_mime_type="application/json",
-                response_schema=clean_schema_for_gemini(
-                    MisconceptionAnalysisResponse.model_json_schema()
-                ),
-            )
-
-            response = await self.model.generate_content_async(
-                prompt, generation_config=generation_config
-            )
-
-            analysis_data = json.loads(response.text)
+            analysis_data, usage = await self._generate_json(prompt, MisconceptionAnalysisResponse)
 
             analysis_data["quiz_id"] = request.quiz_id
             analysis_data["student_id"] = request.student_id
@@ -553,7 +523,10 @@ Acomodaciones: {', '.join(request.student_nee_profile.accommodations) if request
             end_time = time.time()
             analysis_data["metadata"] = {
                 "analysis_time_ms": int((end_time - start_time) * 1000),
-                "model_version": "gemini-2.5-pro",
+                "model_version": settings.AI_MODEL,
+                "tokens_input": usage.prompt_tokens,
+                "tokens_output": usage.completion_tokens,
+                "tokens_thinking": usage.reasoning_tokens,
                 "historical_data_used": request.include_historical_context,
             }
 

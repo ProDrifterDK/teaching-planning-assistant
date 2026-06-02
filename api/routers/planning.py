@@ -1,20 +1,17 @@
-from typing import Annotated, List, Any, Optional
+from typing import Annotated, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
 from fastapi.responses import StreamingResponse
-from google.genai import types
-import google.genai as genai
 import logging
 import json
-import time
 from datetime import datetime
 from sqlalchemy.orm import Session
-from io import BytesIO
 
-from ..models import PlanRequest, StreamThought, StreamAnswer, User, PlanningLogResponse, PlanningLogDetailResponse, MultimodalResources, AttachmentDetail, StructuredPlanRequest, StructuredPlanResponse
+from ..models import PlanRequest, StreamAnswer, User, PlanningLogResponse, PlanningLogDetailResponse, StructuredPlanRequest, StructuredPlanResponse
 from ..core.config import settings
 from ..core.pricing import calculate_cost
 from ..services.curriculum_service import CurriculumService, get_curriculum_service
 from ..services.content_generation_service import content_generation_service
+from ..services.ai_adapter import ai_adapter
 from .auth import get_current_active_user
 from ..core.security import get_current_user_or_client
 from ..db.session import get_db
@@ -100,7 +97,7 @@ async def generate_structured_plan(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.5-pro",
+                "model": settings.AI_MODEL,
                 "generation_mode": generation_mode,
                 "oas_used": request.oa_ids if generation_mode == "oa_based" else [],
                 "topic": request.topic if generation_mode == "topic_based" else None,
@@ -121,56 +118,41 @@ async def generate_structured_plan(
             error=str(e)
         )
 
-async def stream_generator(contents: List[Any], request_data: PlanRequest, user_id: int, db: Session):
+async def stream_generator(prompt_text: str, request_data: PlanRequest, user_id: int, db: Session):
     """
-    Generador asíncrono que produce fragmentos de la respuesta de Gemini a partir de un prompt multimodal.
-    Al finalizar, acumula la respuesta, calcula el costo y lo registra todo en la base de datos.
+    Generate a markdown lesson plan through DeepSeek and emit it as SSE.
+
+    DeepSeek's direct endpoint is text-only here; multimodal resources are rejected
+    before this generator is called.
     """
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
     full_markdown_response = ""
-    
-    full_config = types.GenerateContentConfig(
-        max_output_tokens=65536,
-        thinking_config=types.ThinkingConfig(
-            thinking_budget=-1,
-            include_thoughts=True
-        )
-    )
-    final_usage_metadata = None
+    usage = None
 
     try:
-        stream = await client.aio.models.generate_content_stream(
-            model='gemini-2.5-pro',
-            contents=contents,
-            config=full_config
+        result = await ai_adapter.generate_text(
+            prompt_text,
+            max_tokens=settings.AI_MAX_OUTPUT_TOKENS,
         )
-
-        async for chunk in stream:
-            if chunk.usage_metadata:
-                final_usage_metadata = chunk.usage_metadata
-
-            if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
-                for part in chunk.candidates[0].content.parts:
-                    if not part.text:
-                        continue
-                    if hasattr(part, 'thought') and part.thought:
-                        thought_chunk = StreamThought(content=part.text)
-                        yield f"data: {thought_chunk.json()}\n\n"
-                    else:
-                        full_markdown_response += part.text
-                        answer_chunk = StreamAnswer(content=part.text)
-                        yield f"data: {answer_chunk.json()}\n\n"
+        full_markdown_response = result.text
+        usage = result.usage
+        answer_chunk = StreamAnswer(content=full_markdown_response)
+        yield f"data: {answer_chunk.json()}\n\n"
 
     except Exception as e:
-        logging.error(f"Error durante el stream para OA '{request_data.oa_codigo_oficial}': {e}")
+        logging.error(f"Error durante la generación para OA '{request_data.oa_codigo_oficial}': {e}")
         error_response = {"type": "error", "content": str(e)}
         yield f"data: {json.dumps(error_response)}\n\n"
     finally:
-        if final_usage_metadata and full_markdown_response:
-            input_tokens = final_usage_metadata.prompt_token_count or 0
-            output_tokens = final_usage_metadata.candidates_token_count or 0
-            thought_tokens = final_usage_metadata.thoughts_token_count or 0
-            cost = calculate_cost(input_tokens, output_tokens + thought_tokens)
+        if usage and full_markdown_response:
+            input_tokens = usage.prompt_tokens
+            output_tokens = usage.completion_tokens
+            thought_tokens = usage.reasoning_tokens
+            cost = calculate_cost(
+                input_tokens,
+                output_tokens + thought_tokens,
+                prompt_cache_hit_tokens=usage.prompt_cache_hit_tokens,
+                prompt_cache_miss_tokens=usage.prompt_cache_miss_tokens,
+            )
             
             try:
                 planning_crud.create_planning_log(
@@ -220,10 +202,14 @@ async def generate_plan(
     youtube_url: Annotated[Optional[str], Form()] = None,
     attachments: Annotated[Optional[List[UploadFile]], File()] = None
 ):
-    if not settings.GEMINI_API_KEY:
-        raise HTTPException(status_code=500, detail="La API de Gemini no está configurada.")
-        
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    if not settings.AI_API_KEY:
+        raise HTTPException(status_code=500, detail="La API de DeepSeek no está configurada.")
+
+    if attachments or youtube_url:
+        raise HTTPException(
+            status_code=400,
+            detail="El endpoint directo de DeepSeek configurado para TPA es solo texto; adjuntos y YouTube no están soportados en esta ruta.",
+        )
 
     form_data = {
         field: value for field, value in locals().items() 
@@ -311,58 +297,10 @@ async def generate_plan(
     ])
     
     prompt_text = "\n".join(prompt_parts)
-    contents: List[Any] = [prompt_text]
-    
-    processed_attachments = []
-    processed_youtube_urls = []
-
-    if attachments:
-        for upload_file in attachments:
-            try:
-                logging.info(f"Subiendo archivo: {upload_file.filename}")
-                file_bytes = await upload_file.read()
-                bytes_io_file = BytesIO(file_bytes)
-                
-                uploaded_file: Any = client.files.upload(file=bytes_io_file)
-                assert uploaded_file is not None
-
-                while uploaded_file.state.name == "PROCESSING":
-                    logging.info(f"Archivo {uploaded_file.name} en procesamiento, esperando 5 segundos...")
-                    time.sleep(5)
-                    uploaded_file = client.files.get(name=uploaded_file.name)
-                    assert uploaded_file is not None
-                
-                if uploaded_file.state.name != "ACTIVE":
-                    raise HTTPException(status_code=500, detail=f"No se pudo procesar el archivo: {upload_file.filename}")
-
-                contents.append(uploaded_file)
-                if upload_file.filename:
-                    processed_attachments.append(AttachmentDetail(filename=upload_file.filename, gemini_uri=uploaded_file.uri))
-                logging.info(f"Archivo {uploaded_file.name} listo y añadido al prompt.")
-
-            except Exception as e:
-                logging.error(f"Error al subir el archivo {upload_file.filename}: {e}")
-                raise HTTPException(status_code=500, detail=f"Error al procesar el archivo {upload_file.filename}.")
-
-    if youtube_url and "youtube.com" in youtube_url:
-        try:
-            youtube_part = types.Part(file_data=types.FileData(file_uri=youtube_url))
-            contents.append(youtube_part)
-            processed_youtube_urls.append(youtube_url)
-            logging.info(f"URL de YouTube {youtube_url} añadida al prompt.")
-        except Exception as e:
-            logging.error(f"Error al procesar la URL de YouTube {youtube_url}: {e}")
-            raise HTTPException(status_code=500, detail=f"URL de YouTube inválida o no accesible.")
-
-    if processed_attachments or processed_youtube_urls:
-        request.multimodal_resources = MultimodalResources(
-            youtube_urls=processed_youtube_urls if processed_youtube_urls else None,
-            attachments=processed_attachments if processed_attachments else None
-        )
 
     return StreamingResponse(
         stream_generator(
-            contents=contents,
+            prompt_text=prompt_text,
             request_data=request,
             user_id=current_user.id,
             db=db

@@ -1,56 +1,69 @@
+import json
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from api.models import ContentRevisionRequest, RevisionOptions
+from api.services.ai_adapter import AIJsonResult, AIUsage
 from api.services.revision_service import RevisionService
+
+
+class FakeAdapter:
+    def __init__(self, payload=None, error=None):
+        self.payload = payload or {}
+        self.error = error
+        self.calls = []
+
+    async def generate_json(self, prompt, **kwargs):
+        self.calls.append({"prompt": prompt, **kwargs})
+        if self.error:
+            raise self.error
+        return AIJsonResult(
+            data=self.payload,
+            raw_text=json.dumps(self.payload),
+            model="deepseek-v4-flash",
+            usage=AIUsage(prompt_tokens=10, completion_tokens=5),
+        )
+
 
 @pytest.mark.asyncio
 async def test_revise_content_success():
-    # Mock the Gemini model
-    mock_response = MagicMock()
-    mock_response.text = '{"revised_content": {"quiz": {"questions": []}}, "changes_summary": "Simplified vocabulary"}'
-    
-    mock_model = MagicMock()
-    mock_model.generate_content_async = AsyncMock(return_value=mock_response)
-    
-    with patch('google.generativeai.GenerativeModel', return_value=mock_model):
-        service = RevisionService()
-        service.model = mock_model  # Ensure our mock is used
-        
-        request = ContentRevisionRequest(
-            original_content={"quiz": {"questions": []}},
-            content_type="quiz",
-            feedback="Simplify",
-            revision_options=RevisionOptions(simplify_vocabulary=True),
-            grade_level="1° Básico",
-            subject="Lenguaje"
-        )
-        
-        response = await service.revise_content(request)
-        
-        assert response.success is True
-        assert response.revised_content == {"quiz": {"questions": []}}
-        assert response.changes_summary == "Simplified vocabulary"
-        assert response.revision_metadata["model"] == "gemini-2.5-pro"
+    service = RevisionService(adapter=FakeAdapter({
+        "revised_content": {"quiz": {"questions": []}},
+        "changes_summary": "Simplified vocabulary",
+    }))
+
+    request = ContentRevisionRequest(
+        original_content={"quiz": {"questions": []}},
+        content_type="quiz",
+        feedback="Simplify",
+        revision_options=RevisionOptions(simplify_vocabulary=True),
+        grade_level="1° Básico",
+        subject="Lenguaje",
+    )
+
+    response = await service.revise_content(request)
+
+    assert response.success is True
+    assert response.revised_content == {"quiz": {"questions": []}}
+    assert response.changes_summary == "Simplified vocabulary"
+    assert response.revision_metadata["model"] == "deepseek-v4-flash"
+    assert response.revision_metadata["tokens_input"] == 10
+    assert response.revision_metadata["tokens_output"] == 5
+
 
 @pytest.mark.asyncio
 async def test_revise_content_failure():
-    # Mock exception
-    mock_model = MagicMock()
-    mock_model.generate_content_async = AsyncMock(side_effect=Exception("API Error"))
-    
-    with patch('google.generativeai.GenerativeModel', return_value=mock_model):
-        service = RevisionService()
-        service.model = mock_model
-        
-        request = ContentRevisionRequest(
-            original_content={"quiz": {}},
-            content_type="quiz",
-            feedback="Fix",
-            grade_level="1° Básico",
-            subject="Lenguaje"
-        )
-        
-        response = await service.revise_content(request)
-        
-        assert response.success is False
-        assert response.error == "API Error"
+    service = RevisionService(adapter=FakeAdapter(error=Exception("API Error")))
+
+    request = ContentRevisionRequest(
+        original_content={"quiz": {}},
+        content_type="quiz",
+        feedback="Fix",
+        grade_level="1° Básico",
+        subject="Lenguaje",
+    )
+
+    response = await service.revise_content(request)
+
+    assert response.success is False
+    assert response.error == "API Error"

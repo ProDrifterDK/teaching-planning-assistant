@@ -248,7 +248,7 @@ class Quiz(BaseModel):
     
     # Metadata
     linked_oas: List[str] = Field(..., description="All OAs covered")
-    # Note: Using str for distributions because Gemini can't handle Dict[str, int]
+    # Note: Using str for distributions because lightweight JSON-mode providers can struggle with Dict[str, int]
     difficulty_distribution: str = Field(..., description="Count by difficulty as string, e.g. 'easy: 2, medium: 3, hard: 1'")
     bloom_distribution: str = Field(..., description="Count by Bloom level as string, e.g. 'remember: 1, apply: 2'")
 

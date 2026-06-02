@@ -55,7 +55,7 @@ async def readiness_check(db: AsyncSession = Depends(get_async_db)):
     """
     checks = {
         "database": await _check_database(db),
-        "gemini_api": await _check_gemini_api(),
+        "deepseek_api": _check_deepseek_api(),
         "memory": _check_memory(),
         "disk": _check_disk()
     }
@@ -110,7 +110,7 @@ async def detailed_health_check(db: AsyncSession = Depends(get_async_db)):
         },
         "checks": {
             "database": await _check_database(db),
-            "gemini_api": await _check_gemini_api()
+            "deepseek_api": _check_deepseek_api()
         }
     }
 
@@ -128,34 +128,25 @@ async def _check_database(db: AsyncSession) -> dict:
             "message": f"Database error: {str(e)}"
         }
 
-async def _check_gemini_api() -> dict:
-    """Check Gemini API availability"""
-    try:
-        import google.generativeai as genai
-        from api.core.config import settings
-        
-        if not settings.GEMINI_API_KEY:
-            return {
-                "status": HealthStatus.UNHEALTHY,
-                "message": "GEMINI_API_KEY not configured"
-            }
-        
-        # Simple check - just verify API key format
-        if len(settings.GEMINI_API_KEY) > 10:
-            return {
-                "status": HealthStatus.HEALTHY,
-                "message": "Gemini API key configured"
-            }
-        
-        return {
-            "status": HealthStatus.DEGRADED,
-            "message": "Gemini API key may be invalid"
-        }
-    except Exception as e:
+def _check_deepseek_api() -> dict:
+    """Check DeepSeek API configuration."""
+    if not settings.AI_API_KEY:
         return {
             "status": HealthStatus.UNHEALTHY,
-            "message": f"Gemini API check failed: {str(e)}"
+            "message": "DEEPSEEK_API_KEY not configured",
         }
+
+    if len(settings.AI_API_KEY) <= 10:
+        return {
+            "status": HealthStatus.DEGRADED,
+            "message": "DeepSeek API key may be invalid",
+        }
+
+    return {
+        "status": HealthStatus.HEALTHY,
+        "message": "DeepSeek API key configured",
+        "model": settings.AI_MODEL,
+    }
 
 def _check_memory() -> dict:
     """Check memory usage"""

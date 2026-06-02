@@ -10,8 +10,17 @@ class Settings(BaseSettings):
     Configuraciones de la aplicación cargadas desde el entorno.
     """
     APP_NAME: str = "API de Planificación Curricular"
-    # Support both GEMINI_API_KEY and GOOGLE_API_KEY for flexibility
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+
+    # AI provider settings. Defaults target DeepSeek's OpenAI-compatible endpoint.
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "deepseek")
+    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
+    DEEPSEEK_BASE_URL: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    AI_API_KEY: str = os.getenv("AI_API_KEY") or DEEPSEEK_API_KEY
+    AI_BASE_URL: str = os.getenv("AI_BASE_URL") or DEEPSEEK_BASE_URL
+    AI_MODEL: str = os.getenv("AI_MODEL") or DEEPSEEK_MODEL
+    AI_REQUEST_TIMEOUT_SECONDS: float = float(os.getenv("AI_REQUEST_TIMEOUT_SECONDS", "120"))
+    AI_MAX_OUTPUT_TOKENS: int = int(os.getenv("AI_MAX_OUTPUT_TOKENS", "16000"))
     
     # --- JWT Settings ---
     # Para generar una buena clave secreta, puedes usar: openssl rand -hex 32

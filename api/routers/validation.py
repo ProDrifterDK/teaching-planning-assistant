@@ -4,6 +4,7 @@ from datetime import datetime
 
 from api.db.session import get_db
 from api.core.security import get_current_user_or_client
+from api.core.config import settings
 from api.models import ValidateContentRequest, ValidateContentResponse, ContentType
 from api.services.content_generation_service import content_generation_service
 from api.services.curriculum_service import curriculum_service
@@ -53,7 +54,7 @@ async def validate_content(
                 "requested_at": start_time.isoformat(),
                 "completed_at": end_time.isoformat(),
                 "duration_ms": duration_ms,
-                "model": "gemini-2.5-pro",
+                "model": settings.AI_MODEL,
                 "validation_level": request.validation_level,
                 "content_type": request.content_type.value,
                 "checks_performed": result.total_checks,

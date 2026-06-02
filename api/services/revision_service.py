@@ -1,16 +1,14 @@
-import google.generativeai as genai
-from api.core.config import settings
 from api.models import ContentRevisionRequest, ContentRevisionResponse
-from api.services.schema_utils import clean_schema_for_gemini
+from api.core.config import settings
+from api.services.ai_adapter import DeepSeekAIAdapter, ai_adapter
 import json
 from datetime import datetime
 
 class RevisionService:
-    """Service for revising educational content using Gemini"""
+    """Service for revising educational content using DeepSeek"""
     
-    def __init__(self):
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-2.5-pro')
+    def __init__(self, adapter: DeepSeekAIAdapter | None = None):
+        self.adapter = adapter or ai_adapter
     
     async def revise_content(self, request: ContentRevisionRequest) -> ContentRevisionResponse:
         """
@@ -21,21 +19,14 @@ class RevisionService:
         try:
             prompt = self._build_revision_prompt(request)
             
-            # We want the response to match the structure of ContentRevisionResponse's revised_content
-            # But since revised_content is Dict[str, Any], we need to be careful.
-            # The prompt asks for the exact same JSON format as original.
-            # We'll ask Gemini to return a JSON with 'revised_content' and 'changes_summary'.
-            
-            generation_config = genai.GenerationConfig(
-                response_mime_type="application/json"
-            )
-            
-            response = await self.model.generate_content_async(
+            # We want the response to match the structure of ContentRevisionResponse's revised_content.
+            # Since revised_content is Dict[str, Any], we ask DeepSeek for a JSON object with
+            # 'revised_content' and 'changes_summary'.
+            result = await self.adapter.generate_json(
                 prompt,
-                generation_config=generation_config
+                max_tokens=settings.AI_MAX_OUTPUT_TOKENS,
             )
-            
-            result_data = json.loads(response.text)
+            result_data = result.data
             
             # Extract parts
             revised_content = result_data.get('revised_content')
@@ -56,7 +47,10 @@ class RevisionService:
                     "original_char_count": len(original_text),
                     "revised_char_count": len(revised_text),
                     "complexity_change": "revised", # Placeholder, could be more sophisticated
-                    "model": "gemini-2.5-pro",
+                    "model": result.model,
+                    "tokens_input": result.usage.prompt_tokens,
+                    "tokens_output": result.usage.completion_tokens,
+                    "tokens_thinking": result.usage.reasoning_tokens,
                     "requested_at": start_time.isoformat(),
                     "completed_at": end_time.isoformat(),
                     "duration_ms": duration_ms

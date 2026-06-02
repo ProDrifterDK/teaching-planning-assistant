@@ -1,4 +1,3 @@
-import google.generativeai as genai
 from api.core.config import settings
 from api.models import (
     StructuredPlanRequest, StructuredLesson, GenerateQuizRequest, Quiz,
@@ -9,18 +8,25 @@ from api.models import (
     GenerateSummaryRequest, UnitSummary, SummaryFormat,
     TutorChatRequest, TutorResponse, TutorRole
 )
-from api.services.schema_utils import clean_schema_for_gemini
-import json
+from api.services.schema_utils import clean_schema_for_llm
+from api.services.ai_adapter import DeepSeekAIAdapter, ai_adapter
 import uuid
 from typing import Optional
 from datetime import datetime
 
 class ContentGenerationService:
-    """Service for generating structured educational content using Gemini"""
+    """Service for generating structured educational content using DeepSeek"""
     
-    def __init__(self):
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-2.5-pro')
+    def __init__(self, adapter: Optional[DeepSeekAIAdapter] = None):
+        self.adapter = adapter or ai_adapter
+
+    async def _generate_json(self, prompt: str, response_model) -> dict:
+        result = await self.adapter.generate_json(
+            prompt,
+            schema=clean_schema_for_llm(response_model.model_json_schema()),
+            max_tokens=settings.AI_MAX_OUTPUT_TOKENS,
+        )
+        return result.data
     
     async def generate_structured_lesson(
         self, 
@@ -34,19 +40,8 @@ class ContentGenerationService:
         # Build the prompt with curriculum context
         prompt = self._build_lesson_prompt(request, curriculum_data)
         
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(StructuredLesson.model_json_schema())
-        )
-        
-        # Generate with Gemini
-        response = await self.model.generate_content_async(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        # Parse and validate response
-        lesson_data = json.loads(response.text)
+        # Generate with DeepSeek
+        lesson_data = await self._generate_json(prompt, StructuredLesson)
         
         # Add generated IDs if missing
         if 'lesson_id' not in lesson_data:
@@ -67,20 +62,10 @@ class ContentGenerationService:
         """
         prompt = self._build_quiz_prompt(request, curriculum_data)
         
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(Quiz.model_json_schema())
-        )
-        
         quiz_data: dict = {}
         
         for attempt in range(max_retries + 1):
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config=generation_config
-            )
-            
-            quiz_data = json.loads(response.text)
+            quiz_data = await self._generate_json(prompt, Quiz)
             quiz_data['quiz_id'] = f"quiz_{uuid.uuid4().hex[:8]}"
             
             # Calculate totals
@@ -198,18 +183,7 @@ class ContentGenerationService:
     ) -> Activity:
         """Generate an interactive learning activity"""
         prompt = self._build_activity_prompt(request, curriculum_data)
-        
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(Activity.model_json_schema())
-        )
-        
-        response = await self.model.generate_content_async(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        activity_data = json.loads(response.text)
+        activity_data = await self._generate_json(prompt, Activity)
         activity_data['activity_id'] = f"act_{uuid.uuid4().hex[:8]}"
         
         return Activity(**activity_data)
@@ -221,18 +195,7 @@ class ContentGenerationService:
     ) -> Exam:
         """Generate a summative exam"""
         prompt = self._build_exam_prompt(request, curriculum_data)
-        
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(Exam.model_json_schema())
-        )
-        
-        response = await self.model.generate_content_async(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        exam_data = json.loads(response.text)
+        exam_data = await self._generate_json(prompt, Exam)
         exam_data['exam_id'] = f"exam_{uuid.uuid4().hex[:8]}"
         
         return Exam(**exam_data)
@@ -244,18 +207,7 @@ class ContentGenerationService:
     ) -> ReinforcementPlan:
         """Generate reinforcement materials for struggling students"""
         prompt = self._build_reinforcement_prompt(request, curriculum_data)
-        
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(ReinforcementPlan.model_json_schema())
-        )
-        
-        response = await self.model.generate_content_async(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        plan_data = json.loads(response.text)
+        plan_data = await self._generate_json(prompt, ReinforcementPlan)
         plan_data['plan_id'] = f"reinf_{uuid.uuid4().hex[:8]}"
         
         return ReinforcementPlan(**plan_data)
@@ -267,18 +219,7 @@ class ContentGenerationService:
     ) -> UnitSummary:
         """Generate a unit summary with optional flashcards and concept maps"""
         prompt = self._build_summary_prompt(request, curriculum_data)
-        
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(UnitSummary.model_json_schema())
-        )
-        
-        response = await self.model.generate_content_async(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        summary_data = json.loads(response.text)
+        summary_data = await self._generate_json(prompt, UnitSummary)
         summary_data['summary_id'] = f"summary_{uuid.uuid4().hex[:8]}"
         
         return UnitSummary(**summary_data)
@@ -293,18 +234,8 @@ class ContentGenerationService:
         Maintains conversational context for natural interaction.
         """
         prompt = self._build_tutor_prompt(request, curriculum_data)
-        
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(TutorResponse.model_json_schema())
-        )
-        
-        response = await self.model.generate_content_async(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        return TutorResponse(**json.loads(response.text))
+        tutor_data = await self._generate_json(prompt, TutorResponse)
+        return TutorResponse(**tutor_data)
 
     async def adapt_content_for_nee(
         self,
@@ -315,18 +246,7 @@ class ContentGenerationService:
         Returns fully structured AdaptedContent with all modifications and guidance.
         """
         prompt = self._build_adaptation_prompt(request)
-        
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(AdaptedContent.model_json_schema())
-        )
-        
-        response = await self.model.generate_content_async(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        adapted_data = json.loads(response.text)
+        adapted_data = await self._generate_json(prompt, AdaptedContent)
         adapted_data['adapted_content_id'] = f"adapted_{uuid.uuid4().hex[:8]}"
         adapted_data['original_content_id'] = request.original_content_id or "external"
         
@@ -342,18 +262,7 @@ class ContentGenerationService:
         Returns comprehensive validation results with issues and recommendations.
         """
         prompt = self._build_validation_prompt(request, curriculum_data)
-        
-        generation_config = genai.GenerationConfig(
-            response_mime_type="application/json",
-            response_schema=clean_schema_for_gemini(ValidationResult.model_json_schema())
-        )
-        
-        response = await self.model.generate_content_async(
-            prompt,
-            generation_config=generation_config
-        )
-        
-        result_data = json.loads(response.text)
+        result_data = await self._generate_json(prompt, ValidationResult)
         result_data['validation_id'] = f"val_{uuid.uuid4().hex[:8]}"
         
         # Calculate derived fields

@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-Teaching Planning Assistant is an **autonomous educational content generation engine** powered by Google Gemini AI. It generates structured educational content aligned with the Chilean national curriculum (Currículum Nacional de Chile).
+Teaching Planning Assistant is an **autonomous educational content generation engine** powered by DeepSeek V4 Flash through DeepSeek's OpenAI-compatible API. It generates structured educational content aligned with the Chilean national curriculum (Currículum Nacional de Chile).
 
 ### Key Features
 
@@ -29,7 +29,7 @@ Teaching Planning Assistant is an **autonomous educational content generation en
 │       │           │           │           │                 │
 │  ┌────┴───────────┴───────────┴───────────┴────┐           │
 │  │       Content Generation Service            │           │
-│  │           (Google Gemini 2.5 Pro)          │           │
+│  │   (DeepSeek V4 Flash, OpenAI-compatible)  │           │
 │  └────────────────────────────────────────────┘           │
 │                         │                                  │
 │  ┌──────────────────────┴──────────────────────┐          │
@@ -45,7 +45,7 @@ Teaching Planning Assistant is an **autonomous educational content generation en
 
 - Python 3.11+
 - PostgreSQL (or SQLite for development)
-- Google AI API Key (Gemini)
+- DeepSeek API key (`DEEPSEEK_API_KEY`)
 
 ### Installation
 
@@ -61,7 +61,7 @@ source venv/bin/activate  # Linux/Mac
 .\venv\Scripts\activate  # Windows
 
 # Install dependencies
-pip install -r api/requirements.txt
+pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
@@ -74,9 +74,15 @@ Create a `.env` file with:
 
 ```env
 # Required
-GOOGLE_API_KEY=your_gemini_api_key
+DEEPSEEK_API_KEY=your_deepseek_api_key
 DATABASE_URL=postgresql+asyncpg://user:pass@localhost/tpa
 SECRET_KEY=your_secret_key_here
+
+# Optional AI settings
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_MODEL=deepseek-v4-flash
+AI_REQUEST_TIMEOUT_SECONDS=120
+AI_MAX_OUTPUT_TOKENS=16000
 
 # Optional
 ENVIRONMENT=development
